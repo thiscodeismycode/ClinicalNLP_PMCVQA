@@ -1,5 +1,5 @@
 export PATH=/usr/local/cuda/bin:$PATH
-CUDA_VISIBLE_DEVICES=4,5 \
+CUDA_VISIBLE_DEVICES=7 \
 torchrun --nproc_per_node=2 --master_port 19934 finetune.py \
     --bf16 True \
     --output_dir ./Results_finetune/SLAKE \

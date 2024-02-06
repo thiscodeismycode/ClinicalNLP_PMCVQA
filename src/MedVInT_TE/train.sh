@@ -1,6 +1,7 @@
 # export WANDB_DISABLED=true
 export PATH=/usr/local/cuda/bin:$PATH
 
+CUDA_VISIBLE_DEVICES=7\
 CUDA_LAUNCH_BLOCKING=1 \
 srun --partition=your_partition --mpi=pmi2 --gres=gpu:2 -n1 --ntasks-per-node=1  --job-name=VQA_LoRA_training --kill-on-bad-exit=1 \
     torchrun --nproc_per_node=2 --master_port 18832 train.py \
