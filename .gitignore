@@ -290,3 +290,7 @@ pyrightconfig.json
 # End of https://www.toptal.com/developers/gitignore/api/python,pycharm
 /PMC-VQA/
 /src/MedVInT_TE/Results/
+*.bin
+*.pt
+*.pth
+*.model
