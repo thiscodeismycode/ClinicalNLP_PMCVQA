@@ -33,21 +33,24 @@ class VQATrainer(Trainer):
 @dataclass
 class ModelArguments:
     embed_dim: Optional[int] = field(default=768)
-    pretrained_tokenizer:  Optional[str] = field(default="../../LLAMA_Model/tokenizer")
-    pretrained_model: Optional[str] = field(default="../../LLAMA_Model/llama-7b-hf")
+    # pretrained_tokenizer:  Optional[str] = field(default="../../LLAMA_Model/tokenizer")
+    pretrained_tokenizer:  Optional[str] = field(default="chaoyi-wu/PMC_LLAMA_7B")
+    # pretrained_model: Optional[str] = field(default="../../LLAMA_Model/llama-7b-hf")
+    pretrained_model: Optional[str] = field(default="chaoyi-wu/PMC_LLAMA_7B")
     image_encoder: Optional[str] = field(default="CLIP")
     pmcclip_pretrained: Optional[str] = field(default="./models/pmc_clip/checkpoint.pt")
     clip_pretrained: Optional[str] = field(default="openai/clip-vit-base-patch32")
-    ckp: Optional[str] = field(default="./Results/VQA_lora_noclip/vqa/checkpoint-6500")
+    ckp: Optional[str] = field(default="./Results/VQA_lora_pmcclip/vqa/checkpoint-13500")
 
 
 @dataclass
 class DataArguments:
     is_blank: Optional[bool] = field(default=False)
     image_res: Optional[int] = field(default=512)
-    img_root_dir: str = field(default='../../PMC-VQA/images/', metadata={"help": "Path to the training data."})
-    Train_csv_path: str = field(default= '../../PMC-VQA/train.csv', metadata={"help": "Path to the training data."})
-    Test_csv_path: str = field(default= '../../PMC-VQA/test.csv', metadata={"help": "Path to the training data."})
+    img_root_dir: str = field(default='../../PMC-VQA/images/images_train', metadata={"help": "Path to training data."})
+    Train_csv_path: str = field(default='../../PMC-VQA/train.csv', metadata={"help": "Path to the training data."})
+    Test_csv_path: str = field(default='../../PMC-VQA/valid.csv', metadata={"help": "Path to the training data."})
+
 
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
@@ -63,27 +66,29 @@ def main():
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     
     print("Setup Data")
-    Train_dataset = Binary_VQA_Dataset(data_args.Train_csv_path, data_args.img_root_dir, data_args.image_res,model_args.pretrained_tokenizer,is_blank=data_args.is_blank,is_train=True)
-    Eval_dataset = Binary_VQA_Dataset(data_args.Test_csv_path, data_args.img_root_dir, data_args.image_res,model_args.pretrained_tokenizer,is_blank=data_args.is_blank,is_train=True)
+    Train_dataset = Binary_VQA_Dataset(data_args.Train_csv_path, data_args.img_root_dir, data_args.image_res,
+                                       is_blank=data_args.is_blank, is_train=True)
+                                       # model_args.pretrained_tokenizer, is_blank=data_args.is_blank, is_train=True)
+    Eval_dataset = Binary_VQA_Dataset(data_args.Test_csv_path, data_args.img_root_dir, data_args.image_res,
+                                      is_blank=data_args.is_blank, is_train=True)
+                                      # model_args.pretrained_tokenizer, is_blank=data_args.is_blank, is_train=True)
 
     print("Setup Model")
     model = Binary_VQA_Model(model_args)
-    
+
     run_name_root = training_args.run_name
     output_dir_root = training_args.output_dir
-    
 
-    print('Start training')  
+    print('Start training')
     
     training_args.run_name = run_name_root+'_vqa'
     training_args.output_dir = output_dir_root + '/vqa/'
-    
-    
-    trainer = VQATrainer(model=model, 
-                      train_dataset = Train_dataset, 
-                      eval_dataset = Eval_dataset,
-                      args=training_args
-                      )
+
+    trainer = VQATrainer(model=model,
+                         train_dataset=Train_dataset,
+                         eval_dataset=Eval_dataset,
+                         args=training_args
+                         )
     trainer.train()
     trainer.save_state()
 

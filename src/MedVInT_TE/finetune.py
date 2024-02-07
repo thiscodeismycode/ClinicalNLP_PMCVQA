@@ -18,16 +18,19 @@ from tensorboardX import SummaryWriter
 from dataset.slake_dataset import SLAKE_VQA_Dataset 
 from models.llama.vqa_model import Binary_VQA_Model
 
+
 class VQATrainer(Trainer):
-    # 这里没问题
-    def compute_loss(self, model, inputs, return_outputs=False): ## compute loss这个步骤实际上定义了 forward和loss的计算过程。。。
+    def compute_loss(self, model, inputs, return_outputs=False):
         image = inputs['image']  
         label = inputs['labels'].to(dtype=torch.long) 
         question_inputids = inputs['encoded_input_ids'] 
         question_attenmask = inputs['encoded_attention_mask'] 
         outputs = model(image,question_inputids,question_attenmask)
         loss = F.nll_loss(outputs.transpose(1, 2), label, ignore_index=0)
-        return (loss, {'outputs':outputs}) if return_outputs else loss #outputs要用字典返回 
+        if return_outputs:
+            return loss, {'outputs': outputs}
+        else:
+            return loss
 
 
 @dataclass
