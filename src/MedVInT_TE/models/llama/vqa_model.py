@@ -76,9 +76,8 @@ def get_peft_config(peft_args: PEFTArguments):
     return peft_config
 
 
-
 class Binary_VQA_Model(nn.Module):
-    def __init__(self,config): 
+    def __init__(self, config):
         super(Binary_VQA_Model, self).__init__()
         embed_dim = config.embed_dim
         self.tokenizer = transformers.LlamaTokenizer.from_pretrained(config.pretrained_tokenizer)
