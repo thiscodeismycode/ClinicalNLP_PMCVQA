@@ -44,7 +44,6 @@ class ModelArguments:
     pmcclip_pretrained: Optional[str] = field(default="./models/pmc_clip/checkpoint.pt")
     clip_pretrained: Optional[str] = field(default="openai/clip-vit-base-patch32")
     ckp: Optional[str] = field(default="./Results/VQA_lora_pmcclip/vqa/checkpoint-13500")
-    # ckp: Optional[str] = field(default="chaoyi-wu/PMC_LLAMA_7B")
 
 
 @dataclass
@@ -62,14 +61,9 @@ class TrainingArguments(transformers.TrainingArguments):
     optim: str = field(default="adamw_torch")
     logging_dir: Optional[str] = field(default="./logs")
     logging_steps: Optional[int] = field(default=50)
-    
-
-def str_similarity(str1, str2):
-    seq = difflib.SequenceMatcher(None, str1, str2)
-    return seq.ratio()
 
 
-def get_generated_texts(label, outputs, tokenizer):  # 1,256
+def get_generated_texts(label, outputs, tokenizer):
     outputs = outputs[label != 0][1:-1]
     generated_text = tokenizer.decode(outputs)
     return generated_text
@@ -96,7 +90,6 @@ def main():
     
     print("Setup Model")
     ckp = model_args.ckp + '/pytorch_model.bin'
-    # ckp = model_args.ckp + '/pytorch_model-00001-of-00003.bin'
     model = Binary_VQA_Model(model_args)
     model.load_state_dict(torch.load(ckp), strict=False)
 
@@ -117,8 +110,6 @@ def main():
         question_inputids = sample['encoded_input_ids'].to('cuda')[:, 0, :]
         question_attenmask = sample['encoded_attention_mask'].to('cuda')[:, 0, :]
 
-        print(label)
-        print(question_inputids)
         with torch.no_grad():
             outputs = model(image, question_inputids, question_attenmask)
         loss = F.nll_loss(outputs.transpose(1, 2), label, ignore_index=0)

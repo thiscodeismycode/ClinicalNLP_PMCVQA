@@ -99,13 +99,14 @@ class Binary_VQA_Model(nn.Module):
                 self.image_encoder.vision_model.embeddings = transformers.models.clip.modeling_clip.CLIPVisionEmbeddings(configuration)
             else:
                 self.image_encoder = CLIPVisionModel(configuration)
+
         elif config.image_encoder == "PMC_CLIP":
             self.image_encoder_name = "PMC_CLIP"
             self.image_encoder = PMC_CLIP(embed_dim=768)
             checkpoint = torch.load(config.pmcclip_pretrained)
             state_dict = checkpoint['state_dict']
             state_dict.pop('module.visual.attnpool.positional_embedding')
-            self.image_encoder.load_state_dict({k.replace('module.', ''): v for k, v in state_dict.items()},strict=False)
+            self.image_encoder.load_state_dict({k.replace('module.', ''): v for k, v in state_dict.items()}, strict=False)
             self.image_embed = nn.Sequential(nn.Linear(2048, embed_dim))
             
         self.qformer_query = nn.Parameter(torch.empty(32, 768))
@@ -159,11 +160,11 @@ class Binary_VQA_Model(nn.Module):
             image_features = rearrange(image_features, '(b n) d -> b n d', b=batchsize)
             
         image_query_features = self.qformer_query.unsqueeze(0).expand(batchsize, -1, -1)
-        image_features = self.qformer_decoder(image_query_features.transpose(0,1), image_features.transpose(0,1)).transpose(0,1)
-        question_features  = self.text_encoder(input_ids =encoded_input_ids,attention_mask = encoded_attention_mask)[0] #[2, 256, 4096]
-        question_features = rearrange(question_features,'b n d -> (b n) d')
+        image_features = self.qformer_decoder(image_query_features.transpose(0, 1), image_features.transpose(0,1)).transpose(0,1)
+        question_features = self.text_encoder(input_ids=encoded_input_ids, attention_mask=encoded_attention_mask)[0] #[2, 256, 4096]
+        question_features = rearrange(question_features, 'b n d -> (b n) d')
         question_features = self.text_embed(question_features)
-        x = rearrange(question_features,'(b n)d -> b n d', b=batchsize)
+        x = rearrange(question_features, '(b n)d -> b n d', b=batchsize)
         #torch.Size([1, 256, 768])
         
         B, _len, _dim = x.shape 
