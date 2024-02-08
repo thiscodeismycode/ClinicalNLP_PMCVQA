@@ -33,9 +33,7 @@ class VQATrainer(Trainer):
 @dataclass
 class ModelArguments:
     embed_dim: Optional[int] = field(default=768)
-    # pretrained_tokenizer:  Optional[str] = field(default="../../LLAMA_Model/tokenizer")
     pretrained_tokenizer:  Optional[str] = field(default="chaoyi-wu/PMC_LLAMA_7B")
-    # pretrained_model: Optional[str] = field(default="../../LLAMA_Model/llama-7b-hf")
     pretrained_model: Optional[str] = field(default="chaoyi-wu/PMC_LLAMA_7B")
     image_encoder: Optional[str] = field(default="CLIP")
     pmcclip_pretrained: Optional[str] = field(default="./models/pmc_clip/checkpoint.pt")

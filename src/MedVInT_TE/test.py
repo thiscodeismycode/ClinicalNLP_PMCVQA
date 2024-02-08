@@ -44,7 +44,8 @@ class ModelArguments:
     pmcclip_pretrained: Optional[str] = field(default="./models/pmc_clip/checkpoint.pt")
     clip_pretrained: Optional[str] = field(default="openai/clip-vit-base-patch32")
     ckp: Optional[str] = field(default="./Results/VQA_lora_pmcclip/vqa/checkpoint-13500")
-    
+    # ckp: Optional[str] = field(default="chaoyi-wu/PMC_LLAMA_7B")
+
 
 @dataclass
 class DataArguments:
@@ -66,30 +67,6 @@ class TrainingArguments(transformers.TrainingArguments):
 def str_similarity(str1, str2):
     seq = difflib.SequenceMatcher(None, str1, str2)
     return seq.ratio()
-
-
-def find_most_similar_index(str_list, target_str):
-    """
-    Given a list of strings and a target string, returns the index of the most similar string in the list.
-    """
-    # Initialize variables to keep track of the most similar string and its index
-    most_similar_str = None
-    most_similar_index = None
-    highest_similarity = 0
-    
-    # Iterate through each string in the list
-    for i, string in enumerate(str_list):
-        # Calculate the similarity between the current string and the target string
-        similarity = str_similarity(string, target_str)
-        
-        # If the current string is more similar than the previous most similar string, update the variables
-        if similarity > highest_similarity:
-            most_similar_str = string
-            most_similar_index = i
-            highest_similarity = similarity
-    
-    # Return the index of the most similar string
-    return most_similar_index
 
 
 def get_generated_texts(label, outputs, tokenizer):  # 1,256
@@ -119,6 +96,7 @@ def main():
     
     print("Setup Model")
     ckp = model_args.ckp + '/pytorch_model.bin'
+    # ckp = model_args.ckp + '/pytorch_model-00001-of-00003.bin'
     model = Binary_VQA_Model(model_args)
     model.load_state_dict(torch.load(ckp), strict=False)
 
@@ -132,12 +110,15 @@ def main():
     for sample in tqdm.tqdm(Test_dataloader):
         new_item = {}
         img_path = sample['image_path']
-        encounter_id = sample['encoder_id']
+        encounter_id = sample['encounter_id']
         question = sample['question']
         image = sample['image'].to('cuda')
         label = sample['label'].to('cuda')[:, 0, :]
         question_inputids = sample['encoded_input_ids'].to('cuda')[:, 0, :]
         question_attenmask = sample['encoded_attention_mask'].to('cuda')[:, 0, :]
+
+        print(label)
+        print(question_inputids)
         with torch.no_grad():
             outputs = model(image, question_inputids, question_attenmask)
         loss = F.nll_loss(outputs.transpose(1, 2), label, ignore_index=0)

@@ -27,7 +27,4 @@ python train.py \
     --is_blank True \
     --image_encoder "PMC_CLIP" \
     --pmcclip_pretrained "./models/pmc_clip/checkpoint.pt"
-    # --deepspeed ./ds_config/ds_config_zero2.json \ if deep_speed
-    # --pretrained_model ./PMC_LLAMA_Model  \ if PMC-LLaMA, change this to your PMC-LLaMA model path
-    # --image_encoder "PMC_CLIP" \ if PMC-CLIP
-
+    # --pretrained_model ./PMC_LLAMA_Model

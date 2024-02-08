@@ -39,13 +39,15 @@ class CLIPTextCfg:
     fusion_layers: int = 1  # layers of fusion_module
     MOMENTUM: float = 0.5  # 0.99
 
+
 @dataclass
 class PEFTArguments:
     peft_mode: str = field(default="lora")
     lora_rank: int = field(default=8)
     num_virtual_tokens: int = field(default=32)  # Used for prompt tuning, prefix tuning and p-tuning
     mapping_hidden_dim: int = field(default=1024)
-    
+
+
 def get_peft_config(peft_args: PEFTArguments):
     if peft_args.peft_mode == "lora":
         peft_config = LoraConfig(
@@ -76,9 +78,8 @@ def get_peft_config(peft_args: PEFTArguments):
     return peft_config
 
 
-
 class Binary_VQA_Model(nn.Module):
-    def __init__(self,config): 
+    def __init__(self, config):
         super(Binary_VQA_Model, self).__init__()
         embed_dim = config.embed_dim
         self.tokenizer = transformers.LlamaTokenizer.from_pretrained(config.pretrained_tokenizer)
@@ -146,17 +147,16 @@ class Binary_VQA_Model(nn.Module):
             nn.init.normal_(self.text_projection, std=self.transformer_width ** -0.5)
         if self.mlm_projection is not None:
             nn.init.normal_(self.mlm_projection, std=self.transformer_width ** -0.5)
-            
-    
-    def forward(self,image,encoded_input_ids,encoded_attention_mask):
-        batchsize,_ = encoded_input_ids.shape
+
+    def forward(self, image, encoded_input_ids, encoded_attention_mask):
+        batchsize, _ = encoded_input_ids.shape
         if self.image_encoder_name == "CLIP":
-            image_features = self.image_encoder(image).last_hidden_state[:,1:,:] #as key and value
+            image_features = self.image_encoder(image).last_hidden_state[:, 1:, :]  # as key and value
         elif self.image_encoder_name == "PMC_CLIP":
             image_features = self.image_encoder(image)  
-            image_features = rearrange(image_features,'b n h w -> (b h w) n')
+            image_features = rearrange(image_features, 'b n h w -> (b h w) n')
             image_features = self.image_embed(image_features)
-            image_features = rearrange(image_features,'(b n) d -> b n d', b=batchsize)
+            image_features = rearrange(image_features, '(b n) d -> b n d', b=batchsize)
             
         image_query_features = self.qformer_query.unsqueeze(0).expand(batchsize, -1, -1)
         image_features = self.qformer_decoder(image_query_features.transpose(0,1), image_features.transpose(0,1)).transpose(0,1)

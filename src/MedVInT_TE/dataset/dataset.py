@@ -33,7 +33,6 @@ class Binary_VQA_Dataset(Dataset):
         self.encounter_id = np.asarray(data_info['Encounter_id'])
         self.img_path_list = np.asarray(data_info['Figure_path'])
         self.question_list = np.asarray(data_info['Question'])
-        self.choice_list = np.asarray(data_info.iloc[:, -5:-1])
         self.answer_list = np.asarray(data_info['Answer'])
         self.answer_label_list = np.asarray(data_info['Answer_label'])
         self.tokenizer = LlamaTokenizer.from_pretrained('chaoyi-wu/PMC_LLAMA_7B')
@@ -96,16 +95,15 @@ class Binary_VQA_Dataset(Dataset):
         question = self.question_list[index]
         answer = self.answer_list[index]
         answer_label = self.answer_label_list[index]
-        # choice = self.choice_list[index]
 
         if self.is_blank:
             question_text = f'Question: {question} The Answer is:'
             question_text_with_answer = f'Question: {question} The Answer is: {answer}'
         else:
-            print("I'm not sure why, but is_blank option is not working :(")
+            print("I'm not sure why, but the is_blank option is not working :(")
             return
 
-        bert_input, bert_label = self.encode_mlm(question_text,question_text_with_answer)
+        bert_input, bert_label = self.encode_mlm(question_text, question_text_with_answer)
 
         if self.is_train:
             encoded_input = self.tokenizer(bert_input, add_special_tokens=True, padding='max_length', truncation=True, max_length= 256)
