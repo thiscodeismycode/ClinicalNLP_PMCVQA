@@ -41,9 +41,12 @@ class ModelArguments:
     pretrained_tokenizer:  Optional[str] = field(default="chaoyi-wu/PMC_LLAMA_7B")
     pretrained_model: Optional[str] = field(default="chaoyi-wu/PMC_LLAMA_7B")
     image_encoder: Optional[str] = field(default="PMC_CLIP")
+    # image_encoder: Optional[str] = field(default="PMC_CLIP")
     pmcclip_pretrained: Optional[str] = field(default="./models/pmc_clip/checkpoint.pt")
     clip_pretrained: Optional[str] = field(default="openai/clip-vit-base-patch32")
-    ckp: Optional[str] = field(default="./Results/VQA_lora_pmcclip/vqa/checkpoint-13500")
+    # ckp: Optional[str] = field(default="./Results/VQA_lora_pmcclip/vqa/checkpoint-13500")
+    # ckp: Optional[str] = field(default="./Results/vqa/checkpoint-3800")
+    ckp: Optional[str] = field(default="./Results/My_VQA_lora_pmcclip/vqa/checkpoint-3800")
 
 
 @dataclass

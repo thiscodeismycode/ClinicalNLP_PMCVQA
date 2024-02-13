@@ -109,8 +109,8 @@ class Binary_VQA_Dataset(Dataset):
             encoded_input = self.tokenizer(bert_input, add_special_tokens=True, padding='max_length', truncation=True, max_length= 256)
             encoded_label = self.tokenizer(bert_label, add_special_tokens=True, padding='max_length', truncation=True, max_length= 256)
         else:
-            encoded_input = self.tokenizer(bert_input, add_special_tokens=True, padding='max_length', truncation=True, max_length= 256,return_tensors="pt")
-            encoded_label = self.tokenizer(bert_label, add_special_tokens=True, padding='max_length', truncation=True, max_length= 256,return_tensors="pt")
+            encoded_input = self.tokenizer(bert_input, add_special_tokens=True, padding='max_length', truncation=True, max_length= 256, return_tensors="pt")
+            encoded_label = self.tokenizer(bert_label, add_special_tokens=True, padding='max_length', truncation=True, max_length= 256, return_tensors="pt")
 
         return {
             "image": image,

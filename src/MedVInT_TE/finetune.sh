@@ -1,9 +1,11 @@
 export PATH=/usr/local/cuda/bin:$PATH
-CUDA_VISIBLE_DEVICES=7 \
-torchrun --nproc_per_node=2 --master_port 19934 finetune.py \
+export CUDA_VISIBLE_DEVICES=7 \
+
+#torchrun --nproc_per_node=2 --master_port 19934
+python3 finetune.py \
     --bf16 True \
-    --output_dir ./Results_finetune/SLAKE \
-    --pretrained_model ./PMC_LLAMA_Model  \
+    --output_dir ./Results \
+    --pretrained_model "chaoyi-wu/PMC_LLAMA_7B"  \
     --num_train_epochs 100 \
     --per_device_train_batch_size 8 \
     --per_device_eval_batch_size 8 \
@@ -18,5 +20,8 @@ torchrun --nproc_per_node=2 --master_port 19934 finetune.py \
     --warmup_ratio 0.03 \
     --lr_scheduler_type "cosine" \
     --logging_steps 1 \
-    --run_name SLAKE\
+    --run_name PMC-VQA\
     --tf32 True \
+    --is_blank True \
+    --image_encoder "PMC_CLIP" \
+    --pmcclip_pretrained "./models/pmc_clip/checkpoint.pt"

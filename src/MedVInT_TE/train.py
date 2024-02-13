@@ -18,16 +18,19 @@ from tensorboardX import SummaryWriter
 from dataset.dataset import Binary_VQA_Dataset 
 from models.llama.vqa_model import Binary_VQA_Model
 
+
 class VQATrainer(Trainer):
-    # 这里没问题
-    def compute_loss(self, model, inputs, return_outputs=False): ## compute loss这个步骤实际上定义了 forward和loss的计算过程。。。
+    def compute_loss(self, model, inputs, return_outputs=False):
         image = inputs['image']  
         label = inputs['labels'].to(dtype=torch.long) 
         question_inputids = inputs['encoded_input_ids'] 
         question_attenmask = inputs['encoded_attention_mask'] 
-        outputs = model(image,question_inputids,question_attenmask)
+        outputs = model(image, question_inputids, question_attenmask)
         loss = F.nll_loss(outputs.transpose(1, 2), label, ignore_index=0)
-        return (loss, {'outputs':outputs}) if return_outputs else loss #outputs要用字典返回 
+        if return_outputs:
+            return loss, {'outputs': outputs}
+        else:
+            return loss
 
 
 @dataclass
@@ -35,7 +38,7 @@ class ModelArguments:
     embed_dim: Optional[int] = field(default=768)
     pretrained_tokenizer:  Optional[str] = field(default="chaoyi-wu/PMC_LLAMA_7B")
     pretrained_model: Optional[str] = field(default="chaoyi-wu/PMC_LLAMA_7B")
-    image_encoder: Optional[str] = field(default="CLIP")
+    image_encoder: Optional[str] = field(default="PMC_CLIP")
     pmcclip_pretrained: Optional[str] = field(default="./models/pmc_clip/checkpoint.pt")
     clip_pretrained: Optional[str] = field(default="openai/clip-vit-base-patch32")
     ckp: Optional[str] = field(default="./Results/VQA_lora_pmcclip/vqa/checkpoint-13500")
@@ -43,9 +46,10 @@ class ModelArguments:
 
 @dataclass
 class DataArguments:
-    is_blank: Optional[bool] = field(default=False)
+    is_blank: Optional[bool] = field(default=True)
     image_res: Optional[int] = field(default=512)
-    img_root_dir: str = field(default='../../PMC-VQA/images/images_train', metadata={"help": "Path to training data."})
+    img_root_dir: str = field(default='../../PMC-VQA/images/images_train', metadata={"help": "Path to the training data."})
+    val_root_dir: str = field(default='../../PMC-VQA/images/images_valid', metadata={"help": "Path to the validation data."})
     Train_csv_path: str = field(default='../../PMC-VQA/train.csv', metadata={"help": "Path to the training data."})
     Test_csv_path: str = field(default='../../PMC-VQA/valid.csv', metadata={"help": "Path to the training data."})
 
@@ -66,10 +70,8 @@ def main():
     print("Setup Data")
     Train_dataset = Binary_VQA_Dataset(data_args.Train_csv_path, data_args.img_root_dir, data_args.image_res,
                                        is_blank=data_args.is_blank, is_train=True)
-                                       # model_args.pretrained_tokenizer, is_blank=data_args.is_blank, is_train=True)
-    Eval_dataset = Binary_VQA_Dataset(data_args.Test_csv_path, data_args.img_root_dir, data_args.image_res,
-                                      is_blank=data_args.is_blank, is_train=True)
-                                      # model_args.pretrained_tokenizer, is_blank=data_args.is_blank, is_train=True)
+    Eval_dataset = Binary_VQA_Dataset(data_args.Test_csv_path, data_args.val_root_dir, data_args.image_res,
+                                      is_blank=data_args.is_blank, is_train=False)
 
     print("Setup Model")
     model = Binary_VQA_Model(model_args)

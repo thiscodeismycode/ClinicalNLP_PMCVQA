@@ -1,4 +1,3 @@
-
 import numpy as np
 from einops import rearrange
 from typing import Tuple, Union,Optional
@@ -110,7 +109,8 @@ class Binary_VQA_Model(nn.Module):
             self.image_embed = nn.Sequential(nn.Linear(2048, embed_dim))
             
         self.qformer_query = nn.Parameter(torch.empty(32, 768))
-        self.qformer_decoder_layer = nn.TransformerDecoderLayer(embed_dim, nhead=4, dim_feedforward=768, dropout=0.1, activation='relu',norm_first=True)
+        self.qformer_decoder_layer = nn.TransformerDecoderLayer(embed_dim, nhead=4, dim_feedforward=768, dropout=0.1,
+                                                                activation='relu',norm_first=True)
         self.qformer_decoder_norm = nn.LayerNorm(embed_dim)
         self.qformer_decoder = nn.TransformerDecoder(self.qformer_decoder_layer, 12, self.qformer_decoder_norm)
         
@@ -160,8 +160,9 @@ class Binary_VQA_Model(nn.Module):
             image_features = rearrange(image_features, '(b n) d -> b n d', b=batchsize)
             
         image_query_features = self.qformer_query.unsqueeze(0).expand(batchsize, -1, -1)
-        image_features = self.qformer_decoder(image_query_features.transpose(0, 1), image_features.transpose(0,1)).transpose(0,1)
-        question_features = self.text_encoder(input_ids=encoded_input_ids, attention_mask=encoded_attention_mask)[0] #[2, 256, 4096]
+        image_features = self.qformer_decoder(image_query_features.transpose(0, 1),
+                                              image_features.transpose(0, 1)).transpose(0, 1)
+        question_features = self.text_encoder(input_ids=encoded_input_ids, attention_mask=encoded_attention_mask)[0]
         question_features = rearrange(question_features, 'b n d -> (b n) d')
         question_features = self.text_embed(question_features)
         x = rearrange(question_features, '(b n)d -> b n d', b=batchsize)
