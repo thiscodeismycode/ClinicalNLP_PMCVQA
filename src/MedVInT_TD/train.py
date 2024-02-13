@@ -36,10 +36,16 @@ class ModelArguments:
 
 @dataclass
 class DataArguments:
-    img_dir: str = field(default='./PMC_OA_papers/figures/', metadata={"help": "Path to the training data."})
+    #img_dir: str = field(default='./PMC_OA_papers/figures/', metadata={"help": "Path to the training data."})
+    img_dir: str = field(default='../../PMC-VQA/images/images_train', metadata={"help": "Path to the training data."})
+    
     pred_type: str = field(default='choice')
-    Train_csv_path: str = field(default='./Data/final_train/final_train.csv', metadata={"help": "Path to the training data."})
-    Eval_csv_path: str = field(default='./Data/final_train/final_test.csv', metadata={"help": "Path to the training data."})
+    
+    #Train_csv_path: str = field(default='./Data/final_train/final_train.csv', metadata={"help": "Path to the training data."})
+    #Eval_csv_path: str = field(default='./Data/final_train/final_test.csv', metadata={"help": "Path to the training data."})
+    Train_csv_path: str = field(default='../../PMC-VQA/train.csv', metadata={"help": "Path to the training data."})
+    Eval_csv_path: str = field(default='../../PMC-VQA/test.csv', metadata={"help": "Path to the training data."})
+    
     tokenizer_path: str = field(default='./LLAMA/tokenizer', metadata={"help": "Path to the training data."})
 
 @dataclass

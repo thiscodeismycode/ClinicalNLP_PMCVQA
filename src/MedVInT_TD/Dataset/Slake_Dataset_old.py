@@ -12,12 +12,11 @@ import copy
 from .randaugment import RandomAugment    
 from PIL import Image
 import tqdm
-import csv
     
 class Slake_Dataset(Dataset):
-    def __init__(self,  csv_path, tokenizer_path, img_dir='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_valid/' ,img_tokens = 32, seq_length = 512,voc_size = 32000, mode = 'Train',start = 0,text_type = 'blank'):
+    def __init__(self,  csv_path, tokenizer_path, img_dir = '/home/user/KHJ/PMC-VQA/Slake1.0/imgs/',img_tokens = 32, seq_length = 512,voc_size = 32000, mode = 'Train',start = 0,text_type = 'blank'):
         self.img_root = img_dir
-        self.data = pd.read_csv(csv_path, delimiter='@', quoting=csv.QUOTE_NONE).iloc[start:]
+        self.data = pd.read_csv(csv_path).iloc[start:]
         self.tokenizer = transformers.LlamaTokenizer.from_pretrained(tokenizer_path)
         self.tokenizer.pad_token_id=0
         self.tokenizer.eos_token_id=1
@@ -59,11 +58,11 @@ class Slake_Dataset(Dataset):
 
     def __getitem__(self, idx):
         sample = self.data.iloc[idx]
-        Question  = sample['Question']
-        Anwser = sample['Answer']
+        Question  = sample['question']
+        Anwser = sample['answer']
         
         ##### read image pathes #####
-        img_path = self.img_root + sample['Figure_path']
+        img_path = self.img_root + sample['img_name']
         img = PIL.Image.open(img_path).convert('RGB') 
         image = self.transform(img) 
         
@@ -100,7 +99,7 @@ class Slake_Dataset(Dataset):
         if self.mode == 'Test':
             item = {
                 'input_ids': 'Question: '+ Question + 'The Answer is:',
-                'img_path': sample['Figure_path'],       
+                'img_path': sample['img_name'],       
                 'images': image,
                 'labels': Anwser,
             }

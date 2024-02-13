@@ -7,8 +7,9 @@ CUDA_LAUNCH_BLOCKING=1 \
 #torchrun --nproc_per_node=1 --master_port 18832
 python3 train.py \
     --bf16 True \
+    --do_train True \
     --output_dir ./Results/My_VQA_lora_pmcclip \
-    --num_train_epochs 10 \
+    --num_train_epochs 2 \
     --per_device_train_batch_size 8 \
     --per_device_eval_batch_size 8 \
     --gradient_accumulation_steps 8 \

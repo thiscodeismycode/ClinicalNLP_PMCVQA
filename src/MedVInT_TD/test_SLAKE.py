@@ -6,7 +6,7 @@ import tqdm.auto as tqdm
 from typing import Optional
 import transformers
 from Dataset.Slake_Dataset import Slake_Dataset
-from model.QA_model import QA_model
+from models.QA_model import QA_model
 from transformers import Trainer
 from dataclasses import dataclass, field
 import os
@@ -17,8 +17,8 @@ import difflib
 import csv
 @dataclass
 class ModelArguments:
-    model_path: Optional[str] = field(default="./LLAMA/llama-7b-hf")
-    ckp: Optional[str] = field(default="./Results/QA_no_pretrain_no_aug/Slake/checkpoint-16940")
+    model_path: Optional[str] = field(default="chaoyi-wu/PMC_LLAMA_7B")
+    ckp: Optional[str] = field(default="/home/user/KHJ/PMC-VQA/src/MedVInT_TD/Results/VQA_lora_PMC_LLaMA_PMCCLIP/blank/checkpoint-1382")
     checkpointing: Optional[bool] = field(default=False)
     ## Q_former ##
     N: Optional[int] = field(default=12)
@@ -31,7 +31,7 @@ class ModelArguments:
     
     ## Image Encoder ##
     Vision_module: Optional[str] = field(default='PMC-CLIP')
-    visual_model_path: Optional[str] = field(default='./img_checkpoint/PMC-CLIP/checkpoint.pt')
+    visual_model_path: Optional[str] = field(default='src/MedVInT_TE/models/pmc_clip/checkpoint.pt')
     
     ## Peft ##
     is_lora: Optional[bool] = field(default=True)
@@ -40,9 +40,9 @@ class ModelArguments:
 
 @dataclass
 class DataArguments:
-    img_dir: str = field(default='./Data/Slake1.0/imgs/', metadata={"help": "Path to the training data."})
-    Test_csv_path: str = field(default='./Data/Slake1.0/test_close.csv', metadata={"help": "Path to the training data."})
-    tokenizer_path: str = field(default='./LLAMA/tokenizer', metadata={"help": "Path to the training data."})
+    img_dir: str = field(default='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_valid/', metadata={"help": "Path to the training data."})
+    Test_csv_path: str = field(default='/home/user/KHJ/PMC-VQA/PMC-VQA/valid.csv', metadata={"help": "Path to the training data."})
+    tokenizer_path: str = field(default='chaoyi-wu/PMC_LLAMA_7B', metadata={"help": "Path to the training data."})
     trier: int = field(default=0)
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
@@ -102,7 +102,7 @@ def main():
             collate_fn=None,
             drop_last=False,
     ) 
-    Test_dataset_open = Slake_Dataset(data_args.Test_csv_path.replace('close.csv','open.csv'), data_args.tokenizer_path,mode='Test',text_type='blank',start=row_count)
+    Test_dataset_open = Slake_Dataset(data_args.Test_csv_path, data_args.tokenizer_path,mode='Test',text_type='blank',start=row_count)
     
     # batch size should be 1
     Test_dataloader_open = DataLoader(
@@ -122,20 +122,20 @@ def main():
     model = QA_model(model_args)
 
     ckpt = torch.load(ckp, map_location='cpu')
-    # if you have problem in loading, it may cause by the peft package updating and use the following code:
-    # for name in list(ckpt.keys()):
-    #     if 'self_attn.q_proj.weight' in name and "vision_model" not in name:
-    #         new_name = name.replace('self_attn.q_proj.weight', 'self_attn.q_proj.base_layer.weight')
-    #         ckpt[new_name] = ckpt.pop(name)
-    #     if 'self_attn.v_proj.weight' in name and "vision_model" not in name:
-    #         new_name = name.replace('self_attn.v_proj.weight', 'self_attn.v_proj.base_layer.weight')
-    #         ckpt[new_name] = ckpt.pop(name)
-    #     if 'lora_A' in name:
-    #         new_name = name.replace('lora_A', 'lora_A.default')
-    #         ckpt[new_name] = ckpt.pop(name)
-    #     if 'lora_B' in name:
-    #         new_name = name.replace('lora_B', 'lora_B.default')
-    #         ckpt[new_name] = ckpt.pop(name)
+    #if you have problem in loading, it may cause by the peft package updating and use the following code:
+    for name in list(ckpt.keys()):
+        if 'self_attn.q_proj.weight' in name and "vision_model" not in name:
+            new_name = name.replace('self_attn.q_proj.weight', 'self_attn.q_proj.base_layer.weight')
+            ckpt[new_name] = ckpt.pop(name)
+        if 'self_attn.v_proj.weight' in name and "vision_model" not in name:
+            new_name = name.replace('self_attn.v_proj.weight', 'self_attn.v_proj.base_layer.weight')
+            ckpt[new_name] = ckpt.pop(name)
+        if 'lora_A' in name:
+            new_name = name.replace('lora_A', 'lora_A.default')
+            ckpt[new_name] = ckpt.pop(name)
+        if 'lora_B' in name:
+            new_name = name.replace('lora_B', 'lora_B.default')
+            ckpt[new_name] = ckpt.pop(name)
     model.load_state_dict(ckpt)
     
     ACC = 0
@@ -159,6 +159,7 @@ def main():
                     img_path = sample['img_path'][i]
                     pred = generated_texts[i]
                     writer.writerow([img_path,sample['input_ids'][i],pred,label])
+                    # writer.writerow([pred])
                     cc = cc + 1
     
     with open('result_final_greedy_SLAKE_open'+model_args.ckp.split('/')[-3]+'_'+ model_args.ckp.split('/')[-2]+'.csv', mode='w') as outfile:
@@ -175,11 +176,12 @@ def main():
                     label = sample['labels'][i]
                     img_path = sample['img_path'][i]
                     pred = generated_texts[i]
-                    writer.writerow([img_path,sample['input_ids'][i],pred,label])
+                    writer.writerow([img_path, sample['input_ids'][i].encode('utf-8'), pred, label])
+                    # writer.writerow([pred])
                     cc = cc + 1
              
 if __name__ == "__main__":
-    #os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '6'
     main()
     
 #CUDA_VISIBLE_DEVICES=0  python test_SLAKE.py

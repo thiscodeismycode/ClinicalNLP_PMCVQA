@@ -12,12 +12,14 @@ import copy
 from .randaugment import RandomAugment    
 from PIL import Image
 import tqdm
+import csv
+
 aaa = 0        
 class PMC_QA_Dataset(Dataset):
     def __init__(self,  img_dir, csv_path, tokenizer_path, img_tokens = 32, seq_length = 512,voc_size = 32000, mode = 'Train',start = 0,text_type = 'random',no_image = False):
         self.img_root = img_dir
-        self.data = pd.read_csv(csv_path).iloc[start:]
-        self.tokenizer = transformers.LlamaTokenizer.from_pretrained(tokenizer_path)
+        self.data = pd.read_csv(csv_path, delimiter='@', quoting=csv.QUOTE_NONE).iloc[start:]
+        self.tokenizer = transformers.LlamaTokenizer.from_pretrained('chaoyi-wu/PMC_LLAMA_7B')
         self.tokenizer.pad_token_id=0
         self.tokenizer.eos_token_id=1
         self.img_padding = [-100 for i in range(img_tokens)]
@@ -100,7 +102,7 @@ class PMC_QA_Dataset(Dataset):
             img = PIL.Image.open(img_path).convert('RGB') 
             image = self.transform(img) 
         
-        #Question_id = np.array(self.tokenizer(Question)['input_ids'])
+        Question_id = np.array(self.tokenizer(Question)['input_ids'])
         if self.mode == 'Train':
             pre_text,final_o = self.random_answer(Question,choice_list,Anwser,caption)
             
@@ -141,13 +143,14 @@ class PMC_QA_Dataset(Dataset):
         
         if self.mode == 'Test':
             Combined_choice = ''
-            #random.shuffle(choice_list)
+            random.shuffle(choice_list)
+            
             reflect = {0:' A:',1:' B:',2:' C:',3:' D:' }
             for i,choice in enumerate(choice_list):
                 if Anwser == choice:
                     Anwser = Anwser.replace(' A:',reflect[i]).replace(' B:',reflect[i]).replace(' C:',reflect[i]).replace(' D:',reflect[i])
                 if Choice_A == choice:
-                    Choice_A = Choice_A.replace(' A:',reflect[i]).replace(' B:',reflect[i]).replace(' C:',reflect[i]).replace(' D:',reflect[i])
+                   Choice_A = Choice_A.replace(' A:',reflect[i]).replace(' B:',reflect[i]).replace(' C:',reflect[i]).replace(' D:',reflect[i])
                 if Choice_B == choice:
                     Choice_B = Choice_B.replace(' A:',reflect[i]).replace(' B:',reflect[i]).replace(' C:',reflect[i]).replace(' D:',reflect[i])
                 if Choice_C == choice:
@@ -168,7 +171,8 @@ class PMC_QA_Dataset(Dataset):
                 }
             else:
                 item = {
-                    'input_ids': 'Question: '+ Question + 'Choices:' + Combined_choice +'The Answer is:',
+                    # 'input_ids': 'Question: '+ Question + 'Choices:' + Combined_choice +'The Answer is:',
+                    'input_ids': sample['Encounter_id'] ,
                     'img_path': sample['Figure_path'],       
                     'labels': Anwser,
                     'Choice_A': Choice_A,
@@ -180,6 +184,7 @@ class PMC_QA_Dataset(Dataset):
                 if self.text_type=='blank':
                     item = {
                         'input_ids': 'Question: '+ Question + 'The Answer is:',
+                        'input_ids': sample['Encounter_id'] ,
                         'img_path': sample['Figure_path'],       
                         'images': image,
                         'labels': Anwser,
@@ -192,6 +197,7 @@ class PMC_QA_Dataset(Dataset):
                 if self.text_type=='blank':
                     item = {
                         'input_ids': 'Question: '+ Question + 'The Answer is:',
+                        'input_ids': sample['Encounter_id'] ,
                         'img_path': sample['Figure_path'],       
                         'labels': Anwser,
                         'Choice_A': Choice_A,

@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=2,6 \
+CUDA_VISIBLE_DEVICES=6 \
 torchrun --nproc_per_node=2 --master_port 18340 train_downstream.py \
     --Train_csv_path './Data/VQA_RAD/RAD_train.csv' \
     --Eval_csv_path './Data/VQA_RAD/RAD_val.csv' \
