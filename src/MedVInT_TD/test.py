@@ -15,6 +15,8 @@ import torch
 import numpy as np  
 import difflib 
 import csv
+
+
 @dataclass
 class ModelArguments:
     model_path: Optional[str] = field(default="chaoyi-wu/PMC_LLAMA_7B")
@@ -39,13 +41,15 @@ class ModelArguments:
     peft_mode: Optional[str] = field(default="lora")
     lora_rank: Optional[int] = field(default=8)
 
+
 @dataclass
 class DataArguments:
-    img_dir: str = field(default='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_valid', metadata={"help": "Path to the training data."})
-    Test_csv_path: str = field(default='/home/user/KHJ/PMC-VQA/PMC-VQA/valid.csv', metadata={"help": "Path to the training data."})
-    tokenizer_path: str = field(default='chaoyi-wu/PMC_LLAMA_7B', metadata={"help": "Path to the training data."})
+    img_dir: str = field(default='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_valid', metadata={"help": "Path to validation images."})
+    Test_csv_path: str = field(default='/home/user/KHJ/PMC-VQA/PMC-VQA/valid.csv', metadata={"help": "Path to valdiation data."})
+    tokenizer_path: str = field(default='chaoyi-wu/PMC_LLAMA_7B', metadata={"help": "Path to the pretrained tokenizer."})
     trier: int = field(default=0)
-    
+
+
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
     output_dir: Optional[str] = field(default="./Results")
@@ -56,7 +60,8 @@ class TrainingArguments(transformers.TrainingArguments):
 def str_similarity(str1, str2):
     seq = difflib.SequenceMatcher(None, str1, str2)
     return seq.ratio()
- 
+
+
 def find_most_similar_index(str_list, target_str):
     """
     Given a list of strings and a target string, returns the index of the most similar string in the list.
@@ -91,7 +96,8 @@ def main():
     #     with open('result_final'+str(data_args.trier)+'.csv', 'r') as file:
     #         reader = csv.reader(file)
     #         row_count = sum(1 for row in reader)-1      
-    Test_dataset = PMC_QA_Dataset(data_args.img_dir, data_args.Test_csv_path, data_args.tokenizer_path,mode='Test',start=row_count)
+    Test_dataset = PMC_QA_Dataset(data_args.img_dir, data_args.Test_csv_path, data_args.tokenizer_path,
+                                  text_type='blank', mode='Test', start=row_count)
     
     # batch size should be 1
     Test_dataloader = DataLoader(
@@ -126,44 +132,52 @@ def main():
             new_name = name.replace('lora_B', 'lora_B.default')
             ckpt[new_name] = ckpt.pop(name)
     model.load_state_dict(ckpt)
-    
-    ACC = 0
-    cc = 0
+
     model = model.to('cuda')
     model.eval()
-    #Test_dataset.tokenizer.padding_side = "left" 
-    
-    with open('result_final_'+model_args.ckp.split('/')[-3]+'_'+ model_args.ckp.split('/')[-2]+'.csv', mode='w') as outfile:
-            writer = csv.writer(outfile)
-            writer.writerow(['Figure_path','Pred','Label','Correct'])
-            for sample in tqdm.tqdm(Test_dataloader):
-                input_ids = Test_dataset.tokenizer(sample['input_ids'],return_tensors="pt").to('cuda')
-                #input_ids['input_ids'][0][0]=1
-                images = sample['images'].to('cuda')
-                with torch.no_grad():
-                    generation_ids = model.generate(input_ids['input_ids'],images)
-                generated_texts = Test_dataset.tokenizer.batch_decode(generation_ids.argmax(-1), skip_special_tokens=True) 
-                
-                for i in range(len(generated_texts)):
-                    label = sample['labels'][i]
-                    img_path = sample['img_path'][i]
-                    Choice_A = sample['Choice_A'][i]
-                    Choice_B = sample['Choice_B'][i]
-                    Choice_C = sample['Choice_C'][i]
-                    Choice_D = sample['Choice_D'][i]
-                    Choice_list = [Choice_A, Choice_B, Choice_C, Choice_D]
-                   
-                    pred = generated_texts[i][-1]
-                    index_pred = find_most_similar_index(Choice_list,pred)
-                    index_label  = find_most_similar_index(Choice_list,label)
-                    corret = 0
-                    if index_pred == index_label:
-                        ACC = ACC +1
-                        corret = 1 
-                    writer.writerow([img_path,sample['input_ids'][0]+pred,label,corret])
-                    cc = cc + 1       
-                    
-    print(ACC/cc)  
+
+    output = []
+
+    for sample in tqdm.tqdm(Test_dataloader):
+
+        input_ids = Test_dataset.tokenizer(sample['input_ids'], return_tensors="pt").to('cuda')
+        # input_ids['input_ids'][0][0]=1
+        images = sample['images'].to('cuda')
+        with torch.no_grad():
+            generation_ids = model.generate(input_ids['input_ids'], images)
+        generated_texts = Test_dataset.tokenizer.batch_decode(generation_ids.argmax(-1), skip_special_tokens=True)
+
+        for i in range(len(generated_texts)):
+
+            new_item = {}
+
+            label = sample['labels'][i]
+            img_path = sample['img_path'][i]
+            Choice_A = sample['Choice_A'][i]
+            Choice_B = sample['Choice_B'][i]
+            Choice_C = sample['Choice_C'][i]
+            Choice_D = sample['Choice_D'][i]
+            Choice_list = [Choice_A, Choice_B, Choice_C, Choice_D]
+            encounter_id = sample['encounter_id'][i]
+            question = sample['question'][i]
+
+            pred = generated_texts[i][-1]
+            # index_pred = find_most_similar_index(Choice_list, pred)
+            # index_label = find_most_similar_index(Choice_list, label)
+
+            new_item["encounter_id"] = encounter_id
+            new_item["query_content"] = question
+            new_item["response"] = {
+                "content_zh": "",
+                "content_en": pred,
+                "content_es": ""
+            }
+
+            output.append(new_item)
+
+    with open(os.path.join(training_args.output_dir, 'prediction.json'), mode='w') as outfile:
+        json.dump(output, outfile)
+
       
 if __name__ == "__main__":
     os.environ['CUDA_VISIBLE_DEVICES'] = '6'

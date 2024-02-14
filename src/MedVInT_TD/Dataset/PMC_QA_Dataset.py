@@ -20,8 +20,8 @@ class PMC_QA_Dataset(Dataset):
         self.img_root = img_dir
         self.data = pd.read_csv(csv_path, delimiter='@', quoting=csv.QUOTE_NONE).iloc[start:]
         self.tokenizer = transformers.LlamaTokenizer.from_pretrained('chaoyi-wu/PMC_LLAMA_7B')
-        self.tokenizer.pad_token_id=0
-        self.tokenizer.eos_token_id=1
+        self.tokenizer.pad_token_id = 0
+        self.tokenizer.eos_token_id = 1
         self.img_padding = [-100 for i in range(img_tokens)]
         self.attn_padding = [1 for i in range(img_tokens)]
         self.H = 512
@@ -55,7 +55,7 @@ class PMC_QA_Dataset(Dataset):
     def __len__(self):
         return len(self.data)
     
-    def random_answer(self, Question, choice_list,Answer,caption):
+    def random_answer(self, Question, choice_list, Answer, caption):
         p = random.random()
         Combined_choice = ''
         for choice in choice_list:
@@ -67,11 +67,11 @@ class PMC_QA_Dataset(Dataset):
                 final_o = 'Question: '+ Question +'The Answer is:' + Answer
             if p>0.33 and p<=0.66:
                 pre_text = 'Question: '+ Question + 'Choices:' + Combined_choice +'The Answer is:' 
-                final_o = 'Question: '+ Question + 'Choices:' + Combined_choice +'The Answer is:' +Answer 
+                final_o = 'Question: '+ Question + 'Choices:' + Combined_choice +'The Answer is:' + Answer
             if p>0.66:
                 pre_text = ''
                 final_o = caption
-        if self.text_type =='caption':
+        if self.text_type == 'caption':
             pre_text = ''
             final_o = caption    
         if self.text_type =='blank':
@@ -87,7 +87,8 @@ class PMC_QA_Dataset(Dataset):
 
     def __getitem__(self, idx):
         sample = self.data.iloc[idx]
-        Question  = sample['Question']
+        encounter_id = sample['Encounter_id']
+        Question = sample['Question']
         Choice_A = sample['Choice A']
         Choice_B = sample['Choice B']
         Choice_C = sample['Choice C']
@@ -131,13 +132,17 @@ class PMC_QA_Dataset(Dataset):
                 item = {
                     'input_ids': input_ids,       
                     'images': image,
-                    'labels': label,
+                    'labls': label,
+                    'encounter_id': encounter_id,
+                    'question': Question,
                 }
             else:
                 label = np.array(label)
                 item = {
-                    'input_ids': input_ids, 
+                    'input_ids': input_ids,
                     'labels': label,
+                    'encounter_id': encounter_id,
+                    'question': Question,
                 }
             return item
         
@@ -158,33 +163,36 @@ class PMC_QA_Dataset(Dataset):
                 if Choice_D == choice:
                     Choice_D = Choice_D.replace(' A:',reflect[i]).replace(' B:',reflect[i]).replace(' C:',reflect[i]).replace(' D:',reflect[i]) 
                 Combined_choice = Combined_choice + choice.replace(' A:',reflect[i]).replace(' B:',reflect[i]).replace(' C:',reflect[i]).replace(' D:',reflect[i])
+
             if not self.no_image:
                 item = {
                     'input_ids': 'Question: '+ Question + 'Choices:' + Combined_choice +'The Answer is:',
-                    'img_path': sample['Figure_path'],       
+                    'img_path': sample['Figure_path'],
                     'images': image,
                     'labels': Anwser,
                     'Choice_A': Choice_A,
                     'Choice_B': Choice_B,
                     'Choice_C': Choice_C,
                     'Choice_D': Choice_D,
+                    'encounter_id': encounter_id,
+                    'question': Question,
                 }
             else:
                 item = {
-                    # 'input_ids': 'Question: '+ Question + 'Choices:' + Combined_choice +'The Answer is:',
-                    'input_ids': sample['Encounter_id'] ,
-                    'img_path': sample['Figure_path'],       
+                    'input_ids': 'Question: '+ Question + 'Choices:' + Combined_choice +'The Answer is:',
+                    'img_path': sample['Figure_path'],
                     'labels': Anwser,
                     'Choice_A': Choice_A,
                     'Choice_B': Choice_B,
                     'Choice_C': Choice_C,
                     'Choice_D': Choice_D,
+                    'encounter_id': encounter_id,
+                    'question': Question,
                 }
             if not self.no_image:
                 if self.text_type=='blank':
                     item = {
                         'input_ids': 'Question: '+ Question + 'The Answer is:',
-                        'input_ids': sample['Encounter_id'] ,
                         'img_path': sample['Figure_path'],       
                         'images': image,
                         'labels': Anwser,
@@ -192,18 +200,20 @@ class PMC_QA_Dataset(Dataset):
                         'Choice_B': Choice_B,
                         'Choice_C': Choice_C,
                         'Choice_D': Choice_D,
+                        'encounter_id': encounter_id,
                     }
             else:
                 if self.text_type=='blank':
                     item = {
                         'input_ids': 'Question: '+ Question + 'The Answer is:',
-                        'input_ids': sample['Encounter_id'] ,
                         'img_path': sample['Figure_path'],       
                         'labels': Anwser,
                         'Choice_A': Choice_A,
                         'Choice_B': Choice_B,
                         'Choice_C': Choice_C,
                         'Choice_D': Choice_D,
+                        'encounter_id': encounter_id,
+                        'question': Question,
                     }
             
             return item
