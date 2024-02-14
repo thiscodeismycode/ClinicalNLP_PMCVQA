@@ -14,12 +14,12 @@ from PIL import Image
 import tqdm
 import csv
 
-aaa = 0        
+
 class PMC_QA_Dataset(Dataset):
-    def __init__(self,  img_dir, csv_path, tokenizer_path, img_tokens = 32, seq_length = 512,voc_size = 32000, mode = 'Train',start = 0,text_type = 'random',no_image = False):
+    def __init__(self,  img_dir, csv_path, tokenizer_path, img_tokens = 32, seq_length = 512,voc_size = 32000, mode = 'Train',start = 0,text_type = 'blank',no_image = False):
         self.img_root = img_dir
         self.data = pd.read_csv(csv_path, delimiter='@', quoting=csv.QUOTE_NONE).iloc[start:]
-        self.tokenizer = transformers.LlamaTokenizer.from_pretrained('chaoyi-wu/PMC_LLAMA_7B')
+        self.tokenizer = transformers.LlamaTokenizer.from_pretrained(tokenizer_path)
         self.tokenizer.pad_token_id = 0
         self.tokenizer.eos_token_id = 1
         self.img_padding = [-100 for i in range(img_tokens)]
@@ -45,57 +45,24 @@ class PMC_QA_Dataset(Dataset):
                 normalize,
             ])
             
-            if self.text_type =='random':
-                self.text_type = 'choice'
-            
         self.mode = mode
         self.seq_length = seq_length
         self.voc_size = voc_size
-        
+    
+    def random_answer(self, Question, Answer):
+        Answer = str(Answer)
+        pre_text = 'Question: '+ Question +'The Answer is:'
+        final_o = 'Question: '+ Question +'The Answer is:' + Answer
+        return pre_text, final_o
+
     def __len__(self):
         return len(self.data)
-    
-    def random_answer(self, Question, choice_list, Answer, caption):
-        p = random.random()
-        Combined_choice = ''
-        for choice in choice_list:
-            Combined_choice = Combined_choice + choice
-        if self.text_type =='random':                
-            if p<=0.33:
-                Answer = Answer.replace('A:','').replace('B:','').replace('C:','').replace('D:','')
-                pre_text = 'Question: '+ Question +'The Answer is:'
-                final_o = 'Question: '+ Question +'The Answer is:' + Answer
-            if p>0.33 and p<=0.66:
-                pre_text = 'Question: '+ Question + 'Choices:' + Combined_choice +'The Answer is:' 
-                final_o = 'Question: '+ Question + 'Choices:' + Combined_choice +'The Answer is:' + Answer
-            if p>0.66:
-                pre_text = ''
-                final_o = caption
-        if self.text_type == 'caption':
-            pre_text = ''
-            final_o = caption    
-        if self.text_type =='blank':
-            Answer = Answer.replace('A:','').replace('B:','').replace('C:','').replace('D:','')
-            pre_text = 'Question: '+ Question +'The Answer is:'
-            final_o = 'Question: '+ Question +'The Answer is:' + Answer
-        if self.text_type =='choice':
-            pre_text = 'Question: '+ Question + 'Choices:' + Combined_choice +'The Answer is:' 
-            final_o = 'Question: '+ Question + 'Choices:' + Combined_choice +'The Answer is:' +Answer 
-        #answer_tokenized = self.tokenizer(text)
-
-        return pre_text,final_o
 
     def __getitem__(self, idx):
         sample = self.data.iloc[idx]
         encounter_id = sample['Encounter_id']
         Question = sample['Question']
-        Choice_A = sample['Choice A']
-        Choice_B = sample['Choice B']
-        Choice_C = sample['Choice C']
-        Choice_D = sample['Choice D']
-        caption = sample['Caption']
-        choice_list = [Choice_A,Choice_B,Choice_C,Choice_D]
-        Anwser = sample['Anwser']
+        Answer = sample['Answer']
         
         if not self.no_image:
         ##### read image pathes #####
@@ -103,9 +70,8 @@ class PMC_QA_Dataset(Dataset):
             img = PIL.Image.open(img_path).convert('RGB') 
             image = self.transform(img) 
         
-        Question_id = np.array(self.tokenizer(Question)['input_ids'])
         if self.mode == 'Train':
-            pre_text,final_o = self.random_answer(Question,choice_list,Anwser,caption)
+            pre_text, final_o = self.random_answer(Question, Answer)
             
             final_o = self.tokenizer(final_o)
             input_ids = final_o['input_ids']
@@ -132,7 +98,7 @@ class PMC_QA_Dataset(Dataset):
                 item = {
                     'input_ids': input_ids,       
                     'images': image,
-                    'labls': label,
+                    'labels': label,
                     'encounter_id': encounter_id,
                     'question': Question,
                 }
@@ -147,80 +113,21 @@ class PMC_QA_Dataset(Dataset):
             return item
         
         if self.mode == 'Test':
-            Combined_choice = ''
-            random.shuffle(choice_list)
-            
-            reflect = {0:' A:',1:' B:',2:' C:',3:' D:' }
-            for i,choice in enumerate(choice_list):
-                if Anwser == choice:
-                    Anwser = Anwser.replace(' A:',reflect[i]).replace(' B:',reflect[i]).replace(' C:',reflect[i]).replace(' D:',reflect[i])
-                if Choice_A == choice:
-                   Choice_A = Choice_A.replace(' A:',reflect[i]).replace(' B:',reflect[i]).replace(' C:',reflect[i]).replace(' D:',reflect[i])
-                if Choice_B == choice:
-                    Choice_B = Choice_B.replace(' A:',reflect[i]).replace(' B:',reflect[i]).replace(' C:',reflect[i]).replace(' D:',reflect[i])
-                if Choice_C == choice:
-                    Choice_C = Choice_C.replace(' A:',reflect[i]).replace(' B:',reflect[i]).replace(' C:',reflect[i]).replace(' D:',reflect[i])
-                if Choice_D == choice:
-                    Choice_D = Choice_D.replace(' A:',reflect[i]).replace(' B:',reflect[i]).replace(' C:',reflect[i]).replace(' D:',reflect[i]) 
-                Combined_choice = Combined_choice + choice.replace(' A:',reflect[i]).replace(' B:',reflect[i]).replace(' C:',reflect[i]).replace(' D:',reflect[i])
-
             if not self.no_image:
                 item = {
-                    'input_ids': 'Question: '+ Question + 'Choices:' + Combined_choice +'The Answer is:',
+                    'input_ids': 'Question: '+ Question + 'The Answer is:',
                     'img_path': sample['Figure_path'],
                     'images': image,
-                    'labels': Anwser,
-                    'Choice_A': Choice_A,
-                    'Choice_B': Choice_B,
-                    'Choice_C': Choice_C,
-                    'Choice_D': Choice_D,
+                    'labels': Answer,
                     'encounter_id': encounter_id,
                     'question': Question,
                 }
             else:
                 item = {
-                    'input_ids': 'Question: '+ Question + 'Choices:' + Combined_choice +'The Answer is:',
+                    'input_ids': 'Question: '+ Question + 'The Answer is:',
                     'img_path': sample['Figure_path'],
-                    'labels': Anwser,
-                    'Choice_A': Choice_A,
-                    'Choice_B': Choice_B,
-                    'Choice_C': Choice_C,
-                    'Choice_D': Choice_D,
+                    'labels': Answer,
                     'encounter_id': encounter_id,
                     'question': Question,
                 }
-            if not self.no_image:
-                if self.text_type=='blank':
-                    item = {
-                        'input_ids': 'Question: '+ Question + 'The Answer is:',
-                        'img_path': sample['Figure_path'],       
-                        'images': image,
-                        'labels': Anwser,
-                        'Choice_A': Choice_A,
-                        'Choice_B': Choice_B,
-                        'Choice_C': Choice_C,
-                        'Choice_D': Choice_D,
-                        'encounter_id': encounter_id,
-                    }
-            else:
-                if self.text_type=='blank':
-                    item = {
-                        'input_ids': 'Question: '+ Question + 'The Answer is:',
-                        'img_path': sample['Figure_path'],       
-                        'labels': Anwser,
-                        'Choice_A': Choice_A,
-                        'Choice_B': Choice_B,
-                        'Choice_C': Choice_C,
-                        'Choice_D': Choice_D,
-                        'encounter_id': encounter_id,
-                        'question': Question,
-                    }
-            
             return item
-        
-
-# img_dir = '/nvme/zhangruipeng/zhangxiaoman/data/PMC_OA_papers/figures/'
-# csv_path = '/nvme/zhangruipeng/wuchaoyi/chatGPT_APIs/PMC_QA_project/Data/vqas/test_process.csv'
-# tokenizer_dir = '/nvme/zhangruipeng/wuchaoyi/chatGPT_APIs/PMC_QA_project/LLAMA/tokenizer'
-# dataset = PMC_QA_Dataset(img_dir,csv_path,tokenizer_dir)
-# print(dataset[0])

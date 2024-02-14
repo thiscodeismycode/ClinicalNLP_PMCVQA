@@ -15,6 +15,8 @@ import torch
 import numpy as np  
 import difflib 
 import csv
+
+
 @dataclass
 class ModelArguments:
     model_path: Optional[str] = field(default="chaoyi-wu/PMC_LLAMA_7B")
@@ -136,6 +138,7 @@ def main():
         if 'lora_B' in name:
             new_name = name.replace('lora_B', 'lora_B.default')
             ckpt[new_name] = ckpt.pop(name)
+
     model.load_state_dict(ckpt)
     
     ACC = 0

@@ -20,7 +20,6 @@ import csv
 @dataclass
 class ModelArguments:
     model_path: Optional[str] = field(default="chaoyi-wu/PMC_LLAMA_7B")
-
     ckp: Optional[str] = field(default="/home/user/KHJ/PMC-VQA/src/MedVInT_TD/Results/VQA_lora_PMC_LLaMA_PMCCLIP/blank/checkpoint-1382")
     checkpointing: Optional[bool] = field(default=False)
     ## Q_former ##
@@ -34,7 +33,7 @@ class ModelArguments:
     
     ## Image Encoder ##
     Vision_module: Optional[str] = field(default='PMC-CLIP')
-    visual_model_path: Optional[str] = field(default='src/MedVInT_TE/models/pmc_clip/checkpoint.pt')
+    visual_model_path: Optional[str] = field(default='../MedVInT_TE/models/pmc_clip/checkpoint.pt')
     
     ## Peft ##
     is_lora: Optional[bool] = field(default=True)
@@ -44,7 +43,7 @@ class ModelArguments:
 
 @dataclass
 class DataArguments:
-    img_dir: str = field(default='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_valid', metadata={"help": "Path to validation images."})
+    img_dir: str = field(default='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_valid/', metadata={"help": "Path to validation images."})
     Test_csv_path: str = field(default='/home/user/KHJ/PMC-VQA/PMC-VQA/valid.csv', metadata={"help": "Path to valdiation data."})
     tokenizer_path: str = field(default='chaoyi-wu/PMC_LLAMA_7B', metadata={"help": "Path to the pretrained tokenizer."})
     trier: int = field(default=0)
@@ -113,7 +112,6 @@ def main():
 
     print("Setup Model")
     ckp = model_args.ckp + '/pytorch_model.bin'
-    print(ckp)
     model = QA_model(model_args)
     
     ckpt = torch.load(ckp, map_location='cpu')
@@ -131,7 +129,10 @@ def main():
         if 'lora_B' in name:
             new_name = name.replace('lora_B', 'lora_B.default')
             ckpt[new_name] = ckpt.pop(name)
+
     model.load_state_dict(ckpt)
+
+    print("Start Testing")
 
     model = model.to('cuda')
     model.eval()
@@ -141,29 +142,19 @@ def main():
     for sample in tqdm.tqdm(Test_dataloader):
 
         input_ids = Test_dataset.tokenizer(sample['input_ids'], return_tensors="pt").to('cuda')
-        # input_ids['input_ids'][0][0]=1
         images = sample['images'].to('cuda')
         with torch.no_grad():
             generation_ids = model.generate(input_ids['input_ids'], images)
-        generated_texts = Test_dataset.tokenizer.batch_decode(generation_ids.argmax(-1), skip_special_tokens=True)
+        # generated_texts = Test_dataset.tokenizer.batch_decode(generation_ids.argmax(-1), skip_special_tokens=True)
+        generated_texts = Test_dataset.tokenizer.batch_decode(generation_ids.argmax, skip_special_tokens=True)
 
         for i in range(len(generated_texts)):
 
             new_item = {}
 
-            label = sample['labels'][i]
-            img_path = sample['img_path'][i]
-            Choice_A = sample['Choice_A'][i]
-            Choice_B = sample['Choice_B'][i]
-            Choice_C = sample['Choice_C'][i]
-            Choice_D = sample['Choice_D'][i]
-            Choice_list = [Choice_A, Choice_B, Choice_C, Choice_D]
             encounter_id = sample['encounter_id'][i]
-            question = sample['question'][i]
-
-            pred = generated_texts[i][-1]
-            # index_pred = find_most_similar_index(Choice_list, pred)
-            # index_label = find_most_similar_index(Choice_list, label)
+            question = sample['question'][i].encode('utf-8')
+            pred = generated_texts[i].encode('utf-8')
 
             new_item["encounter_id"] = encounter_id
             new_item["query_content"] = question
@@ -180,7 +171,5 @@ def main():
 
       
 if __name__ == "__main__":
-    os.environ['CUDA_VISIBLE_DEVICES'] = '6'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '7'
     main()
-    
-#CUDA_VISIBLE_DEVICES=2  python test.py

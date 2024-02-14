@@ -13,15 +13,15 @@ from .randaugment import RandomAugment
 from PIL import Image
 import tqdm
 import csv
-    
+
+
 class Slake_Dataset(Dataset):
     def __init__(self,  csv_path, tokenizer_path, img_dir='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_valid/' ,img_tokens = 32, seq_length = 512,voc_size = 32000, mode = 'Train',start = 0,text_type = 'blank'):
         self.img_root = img_dir
         self.data = pd.read_csv(csv_path, delimiter='@', quoting=csv.QUOTE_NONE).iloc[start:]
         self.tokenizer = transformers.LlamaTokenizer.from_pretrained(tokenizer_path)
-        self.tokenizer.pad_token_id=0
-        self.tokenizer.eos_token_id=1
-        self.mode = mode
+        self.tokenizer.pad_token_id = 0
+        self.tokenizer.eos_token_id = 1
         self.img_padding = [-100 for i in range(img_tokens)]
         self.attn_padding = [1 for i in range(img_tokens)]
         self.H = 512
@@ -48,11 +48,11 @@ class Slake_Dataset(Dataset):
         self.seq_length = seq_length
         self.voc_size = voc_size
     
-    def random_answer(self, Question,Answer):
+    def random_answer(self, Question, Answer):
         Answer = str(Answer)
         pre_text = 'Question: '+ Question +'The Answer is:'
         final_o = 'Question: '+ Question +'The Answer is:' + Answer
-        return pre_text,final_o
+        return pre_text, final_o
      
     def __len__(self):
         return len(self.data)
