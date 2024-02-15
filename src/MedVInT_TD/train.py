@@ -16,6 +16,7 @@ import wandb
 @dataclass
 class ModelArguments:
     model_path: Optional[str] = field(default="./LLAMA/checkpoint-189000/")
+
     ## Q_former ##
     N: Optional[int] = field(default=12)
     H: Optional[int] = field(default=12)
@@ -25,10 +26,12 @@ class ModelArguments:
     voc_size: Optional[int] = field(default=32000)
     hidden_dim: Optional[int] = field(default=4096)
     checkpointing: Optional[bool] = field(default=True)
+
     ## Image Encoder ##
     Vision_module: Optional[str] = field(default='CLIP')
     visual_model_path: Optional[str] = field(default='./img_checkpoint/CLIP/clip-vit-base-patch32')
     #visual_model_config: Optional[str] = field(default='./img_checkpoint/RN50_fusion4.json')
+
     ## Peft ##
     is_lora: Optional[bool] = field(default=True)
     peft_mode: Optional[str] = field(default="lora")

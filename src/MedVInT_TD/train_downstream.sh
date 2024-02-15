@@ -1,7 +1,7 @@
 CUDA_VISIBLE_DEVICES=6 \
 torchrun --nproc_per_node=2 --master_port 18340 train_downstream.py \
-    --Train_csv_path './Data/VQA_RAD/RAD_train.csv' \
-    --Eval_csv_path './Data/VQA_RAD/RAD_val.csv' \
+    --Train_csv_path '/home/user/KHJ/PMC-VQA/PMC-VQA/train.csv' \
+    --Eval_csv_path '/home/user/KHJ/PMC-VQA/PMC-VQA/valid.csv' \
     --output_dir ./Results/QA_no_pretrain_no_aug \
     --run_name QA_no_pretrain_no_aug \
     --num_train_epochs 100 \
