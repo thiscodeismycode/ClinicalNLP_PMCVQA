@@ -22,6 +22,7 @@ class Slake_Dataset(Dataset):
         self.tokenizer = transformers.LlamaTokenizer.from_pretrained(tokenizer_path)
         self.tokenizer.pad_token_id = 0
         self.tokenizer.eos_token_id = 1
+        self.mode = mode
         self.img_padding = [-100 for i in range(img_tokens)]
         self.attn_padding = [1 for i in range(img_tokens)]
         self.H = 512
@@ -59,6 +60,7 @@ class Slake_Dataset(Dataset):
 
     def __getitem__(self, idx):
         sample = self.data.iloc[idx]
+        encounter_id = sample['Encounter_id']
         Question  = sample['Question']
         Anwser = sample['Answer']
         
@@ -92,7 +94,9 @@ class Slake_Dataset(Dataset):
             label = np.array(self.img_padding + label)
             
             item = {
-                'input_ids': input_ids,       
+                'input_ids': input_ids,
+                'encounter_id': encounter_id,
+                'question': Question,
                 'images': image,
                 'labels': label,
             }
@@ -100,6 +104,8 @@ class Slake_Dataset(Dataset):
         if self.mode == 'Test':
             item = {
                 'input_ids': 'Question: '+ Question + 'The Answer is:',
+                'encounter_id': encounter_id,
+                'question': Question,
                 'img_path': sample['Figure_path'],       
                 'images': image,
                 'labels': Anwser,

@@ -31,7 +31,7 @@ class ModelArguments:
     
     ## Image Encoder ##
     Vision_module: Optional[str] = field(default='PMC-CLIP')
-    visual_model_path: Optional[str] = field(default='src/MedVInT_TE/models/pmc_clip/checkpoint.pt')
+    visual_model_path: Optional[str] = field(default='../MedVInT_TE/models/pmc_clip/checkpoint.pt')
     
     ## Peft ##
     is_lora: Optional[bool] = field(default=True)

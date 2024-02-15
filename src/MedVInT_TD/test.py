@@ -83,18 +83,14 @@ def find_most_similar_index(str_list, target_str):
     
     # Return the index of the most similar string
     return most_similar_index
-  
+
+
 def main():
     parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     
     print("Setup Data")
     row_count = 0
-    # if os.path.exists('result_final'+str(data_args.trier)+'.csv'): 
-        
-    #     with open('result_final'+str(data_args.trier)+'.csv', 'r') as file:
-    #         reader = csv.reader(file)
-    #         row_count = sum(1 for row in reader)-1      
     Test_dataset = PMC_QA_Dataset(data_args.img_dir, data_args.Test_csv_path, data_args.tokenizer_path,
                                   text_type='blank', mode='Test', start=row_count)
     
@@ -130,7 +126,7 @@ def main():
             new_name = name.replace('lora_B', 'lora_B.default')
             ckpt[new_name] = ckpt.pop(name)
 
-    model.load_state_dict(ckpt)
+    model.load_state_dict(ckpt, strict=False)
 
     print("Start Testing")
 
@@ -144,25 +140,25 @@ def main():
         input_ids = Test_dataset.tokenizer(sample['input_ids'], return_tensors="pt").to('cuda')
         images = sample['images'].to('cuda')
         with torch.no_grad():
-            generation_ids = model.generate(input_ids['input_ids'], images)
+            generation_ids = model.generate_long_sentence(input_ids['input_ids'], images)
         # generated_texts = Test_dataset.tokenizer.batch_decode(generation_ids.argmax(-1), skip_special_tokens=True)
-        generated_texts = Test_dataset.tokenizer.batch_decode(generation_ids.argmax, skip_special_tokens=True)
+        generated_texts = Test_dataset.tokenizer.batch_decode(generation_ids, skip_special_tokens=True)
 
         for i in range(len(generated_texts)):
 
             new_item = {}
 
             encounter_id = sample['encounter_id'][i]
-            question = sample['question'][i].encode('utf-8')
-            pred = generated_texts[i].encode('utf-8')
+            question = sample['question'][i]
+            pred = generated_texts[i]
 
             new_item["encounter_id"] = encounter_id
             new_item["query_content"] = question
-            new_item["response"] = {
+            new_item["responses"] = [{
                 "content_zh": "",
                 "content_en": pred,
                 "content_es": ""
-            }
+            }]
 
             output.append(new_item)
 
@@ -171,5 +167,4 @@ def main():
 
       
 if __name__ == "__main__":
-    os.environ['CUDA_VISIBLE_DEVICES'] = '7'
     main()

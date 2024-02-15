@@ -1,7 +1,12 @@
 import json
+import argparse
 
-json_path = "./Results/prediction.json"
 
+parser = argparse.ArgumentParser(description='json reader')
+parser.add_argument('-p', '--path', type=str, default='./Results/prediction.json')
+
+args = parser.parse_args()
+json_path = args.path
 
 def main():
     with open(json_path, "r") as j:
@@ -9,8 +14,8 @@ def main():
         cnt = 0
         for post in data:
             if cnt < 5:
-                q = post["query_content"][0]
-                a = post["response"]["content_en"]
+                q = post["query_content"]
+                a = post["responses"][0]["content_en"]
                 print(f"Query: {q} \n"
                       f"Answer: {a} \n")
                 cnt += 1
