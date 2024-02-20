@@ -18,6 +18,7 @@ import csv
 class Slake_Dataset(Dataset):
     def __init__(self,  csv_path, tokenizer_path, img_dir='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_valid/' ,img_tokens = 32, seq_length = 512,voc_size = 32000, mode = 'Train',start = 0,text_type = 'blank'):
         self.img_root = img_dir
+        self.img_root_2 = '/data/clinical-nlp/DermAtlas/'
         self.data = pd.read_csv(csv_path, delimiter='@', quoting=csv.QUOTE_NONE).iloc[start:]
         self.tokenizer = transformers.LlamaTokenizer.from_pretrained(tokenizer_path)
         self.tokenizer.pad_token_id = 0
@@ -60,17 +61,23 @@ class Slake_Dataset(Dataset):
 
     def __getitem__(self, idx):
         sample = self.data.iloc[idx]
+
+        # print(sample)
+
         encounter_id = sample['Encounter_id']
         Question  = sample['Question']
-        Anwser = sample['Answer']
+        Answer = sample['Answer']
         
         ##### read image pathes #####
-        img_path = self.img_root + sample['Figure_path']
+        if len(encounter_id) < 8:   # From our new dataset
+            img_path = self.img_root_2 + sample['Figure_path']
+        else:
+            img_path = self.img_root + sample['Figure_path']
         img = PIL.Image.open(img_path).convert('RGB') 
         image = self.transform(img) 
         
         if self.mode == 'Train':
-            pre_text,final_o = self.random_answer(Question,Anwser)
+            pre_text,final_o = self.random_answer(Question,Answer)
             
             final_o = self.tokenizer(final_o)
             input_ids = final_o['input_ids']
@@ -108,7 +115,7 @@ class Slake_Dataset(Dataset):
                 'question': Question,
                 'img_path': sample['Figure_path'],       
                 'images': image,
-                'labels': Anwser,
+                'labels': Answer,
             }
         return item
         

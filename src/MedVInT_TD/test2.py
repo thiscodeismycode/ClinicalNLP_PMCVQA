@@ -52,38 +52,9 @@ class DataArguments:
 
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
-    output_dir: Optional[str] = field(default="./Results")
+    output_dir: Optional[str] = field(default="./Results2")
     cache_dir: Optional[str] = field(default=None)
     optim: str = field(default="adamw_torch")
-
-
-def str_similarity(str1, str2):
-    seq = difflib.SequenceMatcher(None, str1, str2)
-    return seq.ratio()
-
-
-def find_most_similar_index(str_list, target_str):
-    """
-    Given a list of strings and a target string, returns the index of the most similar string in the list.
-    """
-    # Initialize variables to keep track of the most similar string and its index
-    most_similar_str = None
-    most_similar_index = None
-    highest_similarity = 0
-    
-    # Iterate through each string in the list
-    for i, str in enumerate(str_list):
-        # Calculate the similarity between the current string and the target string
-        similarity = str_similarity(str, target_str)
-        
-        # If the current string is more similar than the previous most similar string, update the variables
-        if similarity > highest_similarity:
-            most_similar_str = str
-            most_similar_index = i
-            highest_similarity = similarity
-    
-    # Return the index of the most similar string
-    return most_similar_index
 
 
 def main():
@@ -92,11 +63,11 @@ def main():
     
     print("Setup Data")
     row_count = 0
-    Test_dataset = PMC_QA_Dataset(data_args.img_dir, data_args.Test_csv_path, data_args.tokenizer_path,
-                                  text_type='blank', mode='Test', start=row_count)
-    # Test_dataset = Slake_Dataset(img_dir=data_args.img_dir, csv_path=data_args.Test_csv_path,
-    #                              tokenizer_path=data_args.tokenizer_path, text_type='blank', mode='Test',
-    #                              start=row_count)
+    # Test_dataset = PMC_QA_Dataset(data_args.img_dir, data_args.Test_csv_path, data_args.tokenizer_path,
+    #                               text_type='blank', mode='Test', start=row_count)
+    Test_dataset = Slake_Dataset(img_dir=data_args.img_dir, csv_path=data_args.Test_csv_path,
+                                 tokenizer_path=data_args.tokenizer_path, text_type='blank', mode='Test',
+                                 start=row_count)
 
     # batch size should be 1
     Test_dataloader = DataLoader(
@@ -116,21 +87,22 @@ def main():
     
     ckpt = torch.load(ckp, map_location='cpu')
     # if you have problem in loading, it may cause by the peft package updating and use the following code:
-    # for name in list(ckpt.keys()):
-    #     if 'self_attn.q_proj.weight' in name and "vision_model" not in name:
-    #         new_name = name.replace('self_attn.q_proj.weight', 'self_attn.q_proj.base_layer.weight')
-    #         ckpt[new_name] = ckpt.pop(name)
-    #     if 'self_attn.v_proj.weight' in name and "vision_model" not in name:
-    #         new_name = name.replace('self_attn.v_proj.weight', 'self_attn.v_proj.base_layer.weight')
-    #         ckpt[new_name] = ckpt.pop(name)
-    #     if 'lora_A' in name:
-    #         new_name = name.replace('lora_A', 'lora_A.default')
-    #         ckpt[new_name] = ckpt.pop(name)
-    #     if 'lora_B' in name:
-    #         new_name = name.replace('lora_B', 'lora_B.default')
-    #         ckpt[new_name] = ckpt.pop(name)
+    for name in list(ckpt.keys()):
+        if 'self_attn.q_proj.weight' in name and "vision_model" not in name:
+            new_name = name.replace('self_attn.q_proj.weight', 'self_attn.q_proj.base_layer.weight')
+            ckpt[new_name] = ckpt.pop(name)
+        if 'self_attn.v_proj.weight' in name and "vision_model" not in name:
+            new_name = name.replace('self_attn.v_proj.weight', 'self_attn.v_proj.base_layer.weight')
+            ckpt[new_name] = ckpt.pop(name)
+        if 'lora_A' in name:
+            new_name = name.replace('lora_A', 'lora_A.default')
+            ckpt[new_name] = ckpt.pop(name)
+        if 'lora_B' in name:
+            new_name = name.replace('lora_B', 'lora_B.default')
+            ckpt[new_name] = ckpt.pop(name)
 
     model.load_state_dict(ckpt, strict=False)
+    model.llamacasual.from_pretrained('/home/user/KHJ/PMC-VQA/src/MedVInT_TD/Results/insanity/checkpoint-14/adapter_model')
 
     print("Start Testing")
 

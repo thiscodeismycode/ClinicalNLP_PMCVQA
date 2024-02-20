@@ -18,6 +18,7 @@ import csv
 class PMC_QA_Dataset(Dataset):
     def __init__(self,  img_dir, csv_path, tokenizer_path, img_tokens = 32, seq_length = 512,voc_size = 32000, mode = 'Train',start = 0,text_type = 'blank',no_image = False):
         self.img_root = img_dir
+        self.img_root_2 = '/data/clinical-nlp/DermAtlas/'
         self.data = pd.read_csv(csv_path, delimiter='@', quoting=csv.QUOTE_NONE).iloc[start:]
         self.tokenizer = transformers.LlamaTokenizer.from_pretrained(tokenizer_path)
         self.tokenizer.pad_token_id = 0
@@ -66,7 +67,10 @@ class PMC_QA_Dataset(Dataset):
         
         if not self.no_image:
         ##### read image pathes #####
-            img_path = self.img_root + sample['Figure_path']
+            if len(encounter_id) < 8:  # From our new dataset
+                img_path = self.img_root_2 + sample['Figure_path']
+            else:
+                img_path = self.img_root + sample['Figure_path']
             img = PIL.Image.open(img_path).convert('RGB') 
             image = self.transform(img) 
         
@@ -81,7 +85,8 @@ class PMC_QA_Dataset(Dataset):
             if len(input_ids) < self.seq_length:
                 input_ids = np.pad(input_ids, (0, self.seq_length - len(input_ids)), 'constant', constant_values=0)
             else:
-                input_ids = input_ids[:self.seq_length]
+                # print(input_ids.shape)
+                input_ids = np.append(input_ids[:self.seq_length-1], input_ids[-1])
                 
             #attention = np.array(self.attn_padding + final_o['attention_mask'])
             label = copy.deepcopy(input_ids)

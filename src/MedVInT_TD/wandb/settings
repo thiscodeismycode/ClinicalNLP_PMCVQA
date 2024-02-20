@@ -1,0 +1,6 @@
+[default]
+mode = online
+entity = peaceful1
+project = huggingface
+base_url = https://api.wandb.ai
+
