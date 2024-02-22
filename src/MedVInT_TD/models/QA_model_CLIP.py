@@ -9,7 +9,7 @@ from torch.nn import CrossEntropyLoss
 from einops import rearrange
 import transformers
 from transformers import CLIPVisionConfig
-from .blocks import ModifiedResNet,PMC_CLIP_cfg
+from .blocks import ModifiedResNet, PMC_CLIP_cfg
 import torchvision.models as models
 import json
 from peft import (
@@ -65,9 +65,9 @@ def get_peft_config(peft_args: PEFTArguments):
         raise KeyError(peft_args.peft_mode)
     return peft_config
   
-class QA_model(nn.Module):
+class QA_model_CLIP(nn.Module):
     def __init__(self, model_args):  
-        super(QA_model, self).__init__()  
+        super(QA_model_CLIP, self).__init__()
         self.hidden_dim = model_args.hidden_dim
         self.voc_size = model_args.voc_size
         self.img_tokens = model_args.img_token_num
@@ -86,7 +86,7 @@ class QA_model(nn.Module):
             vision_model = ModifiedResNet(
                 layers=vision_cfg.layers,
                 heads=vision_heads,
-                output_dim = 768,
+                output_dim=768,
                 image_size=vision_cfg.image_size,
                 width=vision_cfg.width
             )
@@ -108,7 +108,7 @@ class QA_model(nn.Module):
         self.query_embed = nn.Embedding(self.img_tokens, num_ftrs) 
         
         decoder_layer = TransformerDecoderLayer(num_ftrs, self.H, 1024,
-                                        0.1, 'relu',normalize_before=True)
+                                        0.1, 'relu', normalize_before=True)
         decoder_norm = nn.LayerNorm(num_ftrs)
         self.decoder = TransformerDecoder(decoder_layer, self.N , decoder_norm,
                                   return_intermediate=False)
@@ -153,7 +153,6 @@ class QA_model(nn.Module):
             print("Setup PEFT")
             peft_config = get_peft_config(peft_args=model_args)
             model = get_peft_model(model, peft_config)
-            # model.print_trainable_parameters()
         return model
     
     def image_encoder(self, xis):
@@ -166,6 +165,8 @@ class QA_model(nn.Module):
         """
         if self.Vision_module == 'PMC-CLIP':
             batch_size = xis.shape[0]
+            # Freeze CLIP
+            # with torch.no_grad():
             res_fea = self.vision_model(xis) #batch_size,feature_size,patch_num,patch_num
             out_emb = rearrange(res_fea,'b d n1 n2 -> b (n1 n2) d')
             #h = rearrange(res_fea,'b n d -> (b n) d')
@@ -179,11 +180,12 @@ class QA_model(nn.Module):
         return out_emb
     
     def forward(self,input_ids,images,labels = None):
-        
         B = images.shape[0]
         ### images encoding ###
         x = self.image_encoder(images)
-        features = x.transpose(0,1) #patch_num b dim
+        features = x.transpose(0,1)  # patch_num b dim
+        # if not features.requires_grad:
+        #     print("Go to hell")
         
         ### Q-Former ###
         query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, B, 1) # query_number, batch, dim
@@ -198,6 +200,7 @@ class QA_model(nn.Module):
         features = rearrange(features,'(b n) d -> b n d',b=B)
         ### LLM ###
         input_embedding = self.llamacasual.get_input_embeddings()(input_ids)
+        # input_embedding: torch.Size([16, 512, 4096])
         input_embedding = torch.cat([features,input_embedding], dim=1)
         
         output = self.llamacasual(inputs_embeds = input_embedding, labels = labels)
@@ -244,6 +247,7 @@ class QA_model(nn.Module):
             features = rearrange(features,'b n d  -> (b n) d')
             features = self.fc_l1(features)
             features = F.relu(features)
+            # features = F.gelu(features)
             features = self.fc_l2(features)
             features = rearrange(features,'(b n) d -> b n d',b=B)
             ### LLM ###

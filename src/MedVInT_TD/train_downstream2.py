@@ -7,7 +7,7 @@ from typing import Optional
 import transformers
 from Dataset.Slake_Dataset import Slake_Dataset
 from Dataset.PMC_QA_Dataset import PMC_QA_Dataset
-from models.QA_model import QA_model
+from models.QA_model_CLIP import QA_model_CLIP
 from transformers import Trainer
 from dataclasses import dataclass, field
 import os
@@ -71,7 +71,7 @@ def main():
 
     print("Setup Model")
     ckp = model_args.ckp + '/pytorch_model.bin'
-    model = QA_model(model_args)
+    model = QA_model_CLIP(model_args)
     print("Loading Pre-train Model")
 
     ckpt = torch.load(ckp, map_location='cpu')
@@ -84,9 +84,17 @@ def main():
             new_name = name.replace('self_attn.v_proj.weight', 'self_attn.v_proj.base_layer.weight')
             ckpt[new_name] = ckpt.pop(name)
         if 'lora_A' in name:
+            if ckpt[name].shape[0] == 8:
+                ckpt[name] = ckpt[name][:model_args.lora_rank, :]
+            if ckpt[name].shape[1] == 8:
+                ckpt[name] = ckpt[name][:, :model_args.lora_rank]
             new_name = name.replace('lora_A', 'lora_A.default')
             ckpt[new_name] = ckpt.pop(name)
         if 'lora_B' in name:
+            if ckpt[name].shape[0] == 8:
+                ckpt[name] = ckpt[name][:model_args.lora_rank, :]
+            if ckpt[name].shape[1] == 8:
+                ckpt[name] = ckpt[name][:, :model_args.lora_rank]
             new_name = name.replace('lora_B', 'lora_B.default')
             ckpt[new_name] = ckpt.pop(name)
 

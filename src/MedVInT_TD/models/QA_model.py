@@ -93,7 +93,7 @@ class QA_model(nn.Module):
             vision_model = self.vision_load_pretrain(vision_model,model_args.visual_model_path)
             self.vision_model = nn.Sequential(*list(vision_model.children())[:-2])
             num_ftrs = 1024
-            
+
         if self.Vision_module == "CLIP":
             self.vision_model = transformers.CLIPVisionModel.from_pretrained(model_args.visual_model_path,ignore_mismatched_sizes=True)
             num_ftrs = 768
