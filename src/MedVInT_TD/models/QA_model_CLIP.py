@@ -8,7 +8,7 @@ from torch import nn
 from torch.nn import CrossEntropyLoss
 from einops import rearrange
 import transformers
-from transformers import CLIPVisionConfig
+from transformers import CLIPVisionConfig, GenerationConfig
 from .blocks import ModifiedResNet, PMC_CLIP_cfg
 import torchvision.models as models
 import json
@@ -64,7 +64,7 @@ def get_peft_config(peft_args: PEFTArguments):
     else:
         raise KeyError(peft_args.peft_mode)
     return peft_config
-  
+
 class QA_model_CLIP(nn.Module):
     def __init__(self, model_args):  
         super(QA_model_CLIP, self).__init__()
@@ -74,13 +74,15 @@ class QA_model_CLIP(nn.Module):
         self.H = model_args.H 
         self.N = model_args.N 
         self.Vision_module = model_args.Vision_module
-        
+        self.vision_output_dir = model_args.vision_output_dir
+        self.freeze_clip = model_args.freeze_clip
+        self.freeze_llama = model_args.freeze_llama
+
         ###################################
         ''' Visual Model'''
         ###################################
 
         if self.Vision_module == 'PMC-CLIP':
-            #vision_cfg = json.load(open(model_args.visual_model_config,'r'))['vision_cfg']
             vision_cfg = PMC_CLIP_cfg()
             vision_heads = vision_cfg.width * 32 // vision_cfg.head_width
             vision_model = ModifiedResNet(
@@ -90,12 +92,14 @@ class QA_model_CLIP(nn.Module):
                 image_size=vision_cfg.image_size,
                 width=vision_cfg.width
             )
-            vision_model = self.vision_load_pretrain(vision_model,model_args.visual_model_path)
+            vision_model = self.vision_load_pretrain(vision_model, model_args.visual_model_path)
+            self.resnet = vision_model
             self.vision_model = nn.Sequential(*list(vision_model.children())[:-2])
             num_ftrs = 1024
-            
+
         if self.Vision_module == "CLIP":
-            self.vision_model = transformers.CLIPVisionModel.from_pretrained(model_args.visual_model_path,ignore_mismatched_sizes=True)
+            self.vision_model = transformers.CLIPVisionModel.from_pretrained(model_args.visual_model_path,
+                                                                             ignore_mismatched_sizes=True)
             num_ftrs = 768
         if self.Vision_module == 'Scratch':
             self.vision_model = transformers.CLIPVisionModel(config=CLIPVisionConfig(image_size=512))
@@ -105,13 +109,12 @@ class QA_model_CLIP(nn.Module):
         ''' Query Decoder'''
         ###################################
 
-        self.query_embed = nn.Embedding(self.img_tokens, num_ftrs) 
+        self.query_embed = nn.Embedding(self.img_tokens, num_ftrs)
         
         decoder_layer = TransformerDecoderLayer(num_ftrs, self.H, 1024,
                                         0.1, 'relu', normalize_before=True)
         decoder_norm = nn.LayerNorm(num_ftrs)
-        self.decoder = TransformerDecoder(decoder_layer, self.N , decoder_norm,
-                                  return_intermediate=False)
+        self.decoder = TransformerDecoder(decoder_layer, self.N, decoder_norm, return_intermediate=False)
 
         ###################################
         ''' FC '''
@@ -121,15 +124,20 @@ class QA_model_CLIP(nn.Module):
         self.fc_l2 = nn.Linear(num_ftrs, self.hidden_dim)
         
         ###################################
-        ''' Large Langugae Model'''
+        ''' Large Language Model'''
         ###################################
         self.llamacasual = self.Setup_model(model_args)
-        
-    def vision_load_pretrain(self,resnet,model_path):
-        checkpoint = torch.load(model_path, map_location='cpu') 
-        state_dict = checkpoint['state_dict'] 
-        state_dict = {k.replace('module.visual.',''): v for k, v in state_dict.items() if '.visual' in k}
-        resnet.load_state_dict(state_dict)
+
+    def vision_load_pretrain(self, resnet, model_path):
+        checkpoint = torch.load(model_path, map_location='cpu')
+        model_name = model_path.split('/')[-1]
+        if model_name == 'new-ckp.pt':
+            resnet.load_state_dict(torch.load(model_path))
+        else:
+            state_dict = checkpoint['state_dict']
+            state_dict = {k.replace('module.visual.', ''): v for k, v in state_dict.items() if '.visual' in k}
+            resnet.load_state_dict(state_dict)
+
         return resnet
                 
     def _get_res_basemodel(self, res_model_name):
@@ -145,6 +153,9 @@ class QA_model_CLIP(nn.Module):
         model = transformers.LlamaForCausalLM.from_pretrained(
            model_args.model_path,
         )
+        generation_config = GenerationConfig.from_pretrained(model_args.model_path, 'generation_config.json')
+        generation_config.do_sample = False
+        generation_config.top_p = 0.75
         if model_args.checkpointing:
             model.gradient_checkpointing_enable()
             model.enable_input_require_grads()
@@ -179,43 +190,62 @@ class QA_model_CLIP(nn.Module):
             out_emb = self.vision_model(pixel_values = xis)['last_hidden_state'][:,1:,:] # dismiss the cls token dim=b n d
         return out_emb
     
-    def forward(self,input_ids,images,labels = None):
+    def forward(self, input_ids, images, labels=None):
         B = images.shape[0]
         ### images encoding ###
-        x = self.image_encoder(images)
-        features = x.transpose(0,1)  # patch_num b dim
-        # if not features.requires_grad:
-        #     print("Go to hell")
+        if self.freeze_clip:
+            with torch.no_grad():
+                x = self.image_encoder(images)
+        else:
+            x = self.image_encoder(images)
+        features = x.transpose(0, 1)  # patch_num b dim
+        if self.freeze_clip and features.requires_grad:
+            print("Go to hell")
         
         ### Q-Former ###
         query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, B, 1) # query_number, batch, dim
-        features,ws = self.decoder(query_embed, features, 
-            memory_key_padding_mask=None, pos=None, query_pos=None)
-        features = features.transpose(0,1)
+        # print(f'does query requires grad? {query_embed.requires_grad}')
+        features, ws = self.decoder(query_embed, features,
+                                    memory_key_padding_mask=None, pos=None, query_pos=None)
+        features = features.transpose(0, 1)
         ### fc  ### 
-        features = rearrange(features,'b n d  -> (b n) d')
+        features = rearrange(features, 'b n d  -> (b n) d')
         features = self.fc_l1(features)
         features = F.relu(features)
         features = self.fc_l2(features)
-        features = rearrange(features,'(b n) d -> b n d',b=B)
+        features = rearrange(features, '(b n) d -> b n d', b=B)
         ### LLM ###
-        input_embedding = self.llamacasual.get_input_embeddings()(input_ids)
+        if self.freeze_llama:
+            with torch.no_grad():
+                input_embedding = self.llamacasual.get_input_embeddings()(input_ids)
+        else:
+            input_embedding = self.llamacasual.get_input_embeddings()(input_ids)
+        # label_embedding = self.llamacasual.get_input_embeddings()(labels)
+        # print(f'input embedding: {input_embedding.shape}')
+        # print(f'features: {features.shape}')
+        if self.freeze_llama and input_embedding.requires_grad:
+            print("Go to hell")
         # input_embedding: torch.Size([16, 512, 4096])
-        input_embedding = torch.cat([features,input_embedding], dim=1)
-        
-        output = self.llamacasual(inputs_embeds = input_embedding, labels = labels)
-        
+        # feature: torch.Size([16, 32, 4096])
+        input_embedding = torch.cat([features, input_embedding], dim=1)
+        # input_embedding = torch.cat([input_embedding, features], dim=1)
+
+        output = self.llamacasual(inputs_embeds=input_embedding, labels=labels)
+        # output = self.llamacasual(inputs_embeds=input_embedding, labels=label_embedding)
+        # Save ResNet weights if and only if we are fine-tuning clip.
+        if self.freeze_llama and not self.freeze_clip:
+            torch.save(self.resnet.state_dict(), self.vision_output_dir)
         return output
 
-    def generate(self,input_ids,images):
+    def generate(self, input_ids, images):
         with torch.no_grad():
             B = images.shape[0]
             ### images encoding ###
             x = self.image_encoder(images)
-            features = x.transpose(0,1) #patch_num b dim
+            features = x.transpose(0, 1) #patch_num b dim
             
             ### Q-Former ###
-            query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, B, 1) # query_number, batch, dim
+            query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, B, 1)  # query_number, batch, dim
             features,ws = self.decoder(query_embed, features, 
                 memory_key_padding_mask=None, pos=None, query_pos=None)
             features = features.transpose(0,1)
@@ -226,8 +256,9 @@ class QA_model_CLIP(nn.Module):
             features = rearrange(features,'(b n) d -> b n d',b=B)
             ### LLM ###
             input_embedding = self.llamacasual.get_input_embeddings()(input_ids)
-            input_embedding = torch.cat([features,input_embedding], dim=1)
-            
+            input_embedding = torch.cat([features, input_embedding], dim=1)
+            # input_embedding = torch.cat([input_embedding, features], dim=1)
+
             generation = self.llamacasual(inputs_embeds = input_embedding)['logits']
             #generation = self.llamacasual.generate(inputs_embeds = input_embedding,max_length=100, do_sample=True, top_k=50)
             return generation
@@ -253,7 +284,9 @@ class QA_model_CLIP(nn.Module):
             ### LLM ###
             input_embedding = self.llamacasual.get_input_embeddings()(input_ids)
             input_embedding = torch.cat([features,input_embedding], dim=1)
+            # input_embedding = torch.cat([input_embedding, features], dim=1)
             
             #generation = self.llamacasual(inputs_embeds = input_embedding)['logits']
-            generation = self.llamacasual.generate(inputs_embeds = input_embedding, max_new_tokens = 30)
+            generation = self.llamacasual.generate(inputs_embeds=input_embedding, max_new_tokens=32,
+                                                   bos_token_id=0, eos_token_id=1, pad_token_id=-1)
             return generation

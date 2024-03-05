@@ -15,7 +15,7 @@ import tqdm
 import csv
 
 
-class PMC_QA_Dataset(Dataset):
+class PMC_QA_Dataset_Title(Dataset):
     def __init__(self,  img_dir, csv_path, tokenizer_path, img_tokens=32, seq_length=512, voc_size=32000,
                  mode='Train', start=0, text_type='blank', no_image=False, clip_only=False, no_query=False):
         self.clip_only = clip_only
@@ -26,7 +26,10 @@ class PMC_QA_Dataset(Dataset):
         self.data = pd.read_csv(csv_path, delimiter='@', quoting=csv.QUOTE_NONE).iloc[start:]
         self.tokenizer = transformers.LlamaTokenizer.from_pretrained(tokenizer_path)
         self.tokenizer.pad_token_id = 0
-        self.tokenizer.eos_token_id = 1
+        # self.tokenizer.bos_token_id = 0
+        # self.tokenizer.eos_token_id = 1
+        self.tokenizer.bos_token_id = 1
+        self.tokenizer.eos_token_id = 2
         self.img_padding = [-100 for i in range(img_tokens)]
         self.attn_padding = [1 for i in range(img_tokens)]
         self.H = 512
@@ -35,17 +38,19 @@ class PMC_QA_Dataset(Dataset):
         self.text_type = text_type
         self.no_image = no_image
         normalize = transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-        self.transform = transforms.Compose([                        
-                transforms.RandomResizedCrop((self.H,self.W),scale=(0.2, 1.0), interpolation=Image.BICUBIC),
+        self.transform = transforms.Compose([
+                transforms.Resize((self.H, self.W)),
+                # transforms.RandomResizedCrop((self.H, self.W), scale=(0.8, 1.0)),
                 transforms.RandomHorizontalFlip(),
-                RandomAugment(2,7,isPIL=True,augs=['Identity','AutoContrast','Equalize','Brightness','Sharpness',
-                                                'ShearX', 'ShearY', 'TranslateX', 'TranslateY', 'Rotate']),     
+                RandomAugment(2, 7, isPIL=True, augs=['Identity', 'AutoContrast', 'Equalize', 'Brightness',
+                                                      'Sharpness', 'ShearX', 'ShearY', 'TranslateX', 'TranslateY',
+                                                      'Rotate']),
                 transforms.ToTensor(),
                 normalize,
             ]) 
         if mode == 'Test':
             self.transform = transforms.Compose([                        
-                transforms.Resize((self.H,self.W), interpolation=Image.BICUBIC),
+                transforms.Resize((self.H,self.W)),
                 transforms.ToTensor(),
                 normalize,
             ])
@@ -55,6 +60,7 @@ class PMC_QA_Dataset(Dataset):
         self.voc_size = voc_size
     
     def random_answer(self, Question, Answer):
+        Question = str(Question)
         Answer = str(Answer)
         pre_text = 'Question: '+ Question +'The Answer is:'
         final_o = 'Question: '+ Question +'The Answer is:' + Answer
@@ -66,8 +72,10 @@ class PMC_QA_Dataset(Dataset):
     def __getitem__(self, idx):
         sample = self.data.iloc[idx]
         encounter_id = sample['Encounter_id']
-        Question = ("" if (self.clip_only or self.no_query) else str(sample['Question']))
-        # print(f"no query? {Question}")
+        if self.clip_only or self.no_query:
+            Question = "What is this disease? Please look at the picture."
+        else:
+            Question = sample['Question']
         Answer = sample['Answer']
         
         if not self.no_image:
@@ -89,28 +97,39 @@ class PMC_QA_Dataset(Dataset):
             final_o = self.tokenizer(final_o)
             input_ids = final_o['input_ids']
             input_ids.append(self.tokenizer.eos_token_id)
-            input_ids = np.array(input_ids)
-            
-            if len(input_ids) < self.seq_length:
-                input_ids = np.pad(input_ids, (0, self.seq_length - len(input_ids)), 'constant', constant_values=0)
+            input_ids = np.array(input_ids)    # Tokenized QA
+
+            input_length = len(input_ids)
+
+            if input_length < self.seq_length:
+                input_ids = np.pad(input_ids, (0, self.seq_length - input_length), 'constant', constant_values=0)
             else:
-                # print(input_ids.shape)
-                input_ids = np.append(input_ids[:self.seq_length-1], input_ids[-1])
-                
-            #attention = np.array(self.attn_padding + final_o['attention_mask'])
-            label = copy.deepcopy(input_ids)
-            label[label==0] = -100
+                # input_ids = np.append(input_ids[:self.seq_length-1], input_ids[-1])
+                input_ids = input_ids[:self.seq_length]
+
+            label = copy.deepcopy(input_ids)    # Now label is the tokenized QA
+            # label[label == 0] = -100
             if pre_text != '':
-                pre_text = self.tokenizer(pre_text)
-                if len(pre_text['input_ids'])<len(label):
-                    #label = np.array(label)
-                    label[:len(pre_text['input_ids'])] = -100
+                pre_text = self.tokenizer(pre_text)  # Tokenized Q
+                pre_text = pre_text['input_ids']
+                # pre_text.append(self.tokenizer.eos_token_id)
+                # pre_text = np.array(pre_text)
+
+                if len(pre_text) < len(label):
+                    label[:len(pre_text)] = -100   # Mask except for the A part
+                """
+                if len(pre_text) < self.seq_length:
+                    pre_text = np.pad(pre_text, (0, self.seq_length - len(pre_text)), 'constant', constant_values=0)
+                else:
+                    pre_text = np.append(pre_text[:self.seq_length - 1], pre_text[-1])
+                """
             label = label.tolist()
+
             if not self.no_image:
-                label = np.array(self.img_padding + label)
-            
+                label = np.array(self.img_padding + label)  # (544,)
+
                 item = {
-                    'input_ids': input_ids,       
+                    'input_ids': input_ids,
                     'images': image,
                     'labels': label,
                     'encounter_id': encounter_id,

@@ -6,8 +6,9 @@ import tqdm.auto as tqdm
 from typing import Optional
 import transformers
 from Dataset.PMC_QA_Dataset import PMC_QA_Dataset
+from Dataset.PMC_QA_Dataset_Title import PMC_QA_Dataset_Title
 from Dataset.Slake_Dataset import Slake_Dataset
-from models.QA_model import QA_model
+from models.QA_model_CLIP import QA_model_CLIP
 from transformers import Trainer
 from dataclasses import dataclass, field
 import os
@@ -35,11 +36,16 @@ class ModelArguments:
     ## Image Encoder ##
     Vision_module: Optional[str] = field(default='PMC-CLIP')
     visual_model_path: Optional[str] = field(default='../MedVInT_TE/models/pmc_clip/checkpoint.pt')
-    
+    vision_output_dir: Optional[str] = field(default='/home/user/KHJ/PMC-VQA/src/MedVInT_TE/models/pmc_clip/new-ckp.pt')
+
     ## Peft ##
     is_lora: Optional[bool] = field(default=True)
     peft_mode: Optional[str] = field(default="lora")
     lora_rank: Optional[int] = field(default=8)
+
+    ## Into the unknown ##
+    freeze_clip: Optional[bool] = field(default=True)
+    freeze_llama: Optional[bool] = field(default=True)
 
 
 @dataclass
@@ -48,6 +54,9 @@ class DataArguments:
     Test_csv_path: str = field(default='/home/user/KHJ/PMC-VQA/PMC-VQA/valid.csv', metadata={"help": "Path to valdiation data."})
     tokenizer_path: str = field(default='chaoyi-wu/PMC_LLAMA_7B', metadata={"help": "Path to the pretrained tokenizer."})
     trier: int = field(default=0)
+    clip_only: Optional[bool] = field(default=False)
+    no_query: Optional[bool] = field(default=False)
+    seq_length: Optional[int] = field(default=512)
 
 
 @dataclass
@@ -92,8 +101,9 @@ def main():
     
     print("Setup Data")
     row_count = 0
-    Test_dataset = PMC_QA_Dataset(data_args.img_dir, data_args.Test_csv_path, data_args.tokenizer_path,
-                                  text_type='blank', mode='Test', start=row_count)
+    Test_dataset = PMC_QA_Dataset_Title(data_args.img_dir, data_args.Test_csv_path, data_args.tokenizer_path,
+                                  text_type='blank', mode='Test', start=row_count, clip_only=data_args.clip_only,
+                                  no_query=data_args.no_query, seq_length=data_args.seq_length)
     # Test_dataset = Slake_Dataset(img_dir=data_args.img_dir, csv_path=data_args.Test_csv_path,
     #                              tokenizer_path=data_args.tokenizer_path, text_type='blank', mode='Test',
     #                              start=row_count)
@@ -112,23 +122,23 @@ def main():
 
     print("Setup Model")
     ckp = model_args.ckp + '/pytorch_model.bin'
-    model = QA_model(model_args)
+    model = QA_model_CLIP(model_args)
     
     ckpt = torch.load(ckp, map_location='cpu')
     # if you have problem in loading, it may cause by the peft package updating and use the following code:
-    # for name in list(ckpt.keys()):
-    #     if 'self_attn.q_proj.weight' in name and "vision_model" not in name:
-    #         new_name = name.replace('self_attn.q_proj.weight', 'self_attn.q_proj.base_layer.weight')
-    #         ckpt[new_name] = ckpt.pop(name)
-    #     if 'self_attn.v_proj.weight' in name and "vision_model" not in name:
-    #         new_name = name.replace('self_attn.v_proj.weight', 'self_attn.v_proj.base_layer.weight')
-    #         ckpt[new_name] = ckpt.pop(name)
-    #     if 'lora_A' in name:
-    #         new_name = name.replace('lora_A', 'lora_A.default')
-    #         ckpt[new_name] = ckpt.pop(name)
-    #     if 'lora_B' in name:
-    #         new_name = name.replace('lora_B', 'lora_B.default')
-    #         ckpt[new_name] = ckpt.pop(name)
+    """for name in list(ckpt.keys()):
+        if 'self_attn.q_proj.weight' in name and "vision_model" not in name:
+            new_name = name.replace('self_attn.q_proj.weight', 'self_attn.q_proj.base_layer.weight')
+            ckpt[new_name] = ckpt.pop(name)
+        if 'self_attn.v_proj.weight' in name and "vision_model" not in name:
+            new_name = name.replace('self_attn.v_proj.weight', 'self_attn.v_proj.base_layer.weight')
+            ckpt[new_name] = ckpt.pop(name)
+        if 'lora_A' in name:
+            new_name = name.replace('lora_A', 'lora_A.default')
+            ckpt[new_name] = ckpt.pop(name)
+        if 'lora_B' in name:
+            new_name = name.replace('lora_B', 'lora_B.default')
+            ckpt[new_name] = ckpt.pop(name)"""
 
     model.load_state_dict(ckpt, strict=False)
 

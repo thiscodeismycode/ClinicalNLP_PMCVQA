@@ -7,6 +7,7 @@ from typing import Optional
 import transformers
 from Dataset.Slake_Dataset import Slake_Dataset
 from Dataset.PMC_QA_Dataset import PMC_QA_Dataset
+from Dataset.PMC_QA_Dataset_Title import PMC_QA_Dataset_Title
 from models.QA_model_CLIP import QA_model_CLIP
 from transformers import Trainer
 from dataclasses import dataclass, field
@@ -24,7 +25,7 @@ class ModelArguments:
     ## Q_former ##
     N: Optional[int] = field(default=12)
     H: Optional[int] = field(default=8)
-    img_token_num: Optional[int] = field(default=32) 
+    img_token_num: Optional[int] = field(default=32)
 
     ## Basic Setting ##
     voc_size: Optional[int] = field(default=32000)
@@ -34,6 +35,7 @@ class ModelArguments:
     ## Image Encoder ##
     Vision_module: Optional[str] = field(default='PMC-CLIP')
     visual_model_path: Optional[str] = field(default='../MedVInT_TE/models/pmc_clip/checkpoint.pt')
+    vision_output_dir: Optional[str] = field(default='/home/user/KHJ/PMC-VQA/src/MedVInT_TE/models/pmc_clip/new-ckp.pt')
     #visual_model_config: Optional[str] = field(default='./img_checkpoint/RN50_fusion4.json')
     
     ## Peft ##
@@ -41,12 +43,18 @@ class ModelArguments:
     peft_mode: Optional[str] = field(default="lora")
     lora_rank: Optional[int] = field(default=8)
 
+    ## Into the unknown ##
+    freeze_clip: Optional[bool] = field(default=False)
+    freeze_llama: Optional[bool] = field(default=False)
+
 
 @dataclass
 class DataArguments:
     Train_csv_path: str = field(default='/home/user/KHJ/PMC-VQA/PMC-VQA/train.csv', metadata={"help": "Path to the training data."})
     Eval_csv_path: str = field(default='/home/user/KHJ/PMC-VQA/PMC-VQA/valid.csv', metadata={"help": "Path to the training data."})
     tokenizer_path: str = field(default='chaoyi-wu/PMC_LLAMA_7B', metadata={"help": "Path to the training data."})
+    clip_only: Optional[bool] = field(default=False)
+    seq_length: Optional[int] = field(default=32)
 
 
 @dataclass
@@ -63,17 +71,19 @@ def main():
 
     # Train_dataset = Slake_Dataset(data_args.Train_csv_path, data_args.tokenizer_path, img_dir='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_train/', text_type = 'blank')
     # Eval_dataset = Slake_Dataset(data_args.Eval_csv_path, data_args.tokenizer_path, img_dir='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_valid/', text_type = 'blank')
-    Train_dataset = PMC_QA_Dataset(csv_path=data_args.Train_csv_path, tokenizer_path=data_args.tokenizer_path,
-                                   img_dir='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_train/', text_type = 'blank')
-    Eval_dataset = PMC_QA_Dataset(csv_path=data_args.Eval_csv_path, tokenizer_path=data_args.tokenizer_path,
-                                  img_dir='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_valid/', text_type = 'blank')
+    Train_dataset = PMC_QA_Dataset_Title(csv_path=data_args.Train_csv_path, tokenizer_path=data_args.tokenizer_path,
+                                   img_dir='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_train/', text_type='blank',
+                                   clip_only=data_args.clip_only, seq_length=data_args.seq_length)
+    Eval_dataset = PMC_QA_Dataset_Title(csv_path=data_args.Eval_csv_path, tokenizer_path=data_args.tokenizer_path,
+                                  img_dir='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_valid/', text_type='blank',
+                                        seq_length=data_args.seq_length)
 
 
     print("Setup Model")
-    ckp = model_args.ckp + '/pytorch_model.bin'
     model = QA_model_CLIP(model_args)
     print("Loading Pre-train Model")
-
+    """
+    ckp = model_args.ckp + '/pytorch_model.bin'
     ckpt = torch.load(ckp, map_location='cpu')
     #if you have problem in loading, it may cause by the peft package updating and use the following code:
     for name in list(ckpt.keys()):
@@ -99,7 +109,7 @@ def main():
             ckpt[new_name] = ckpt.pop(name)
 
     model.load_state_dict(ckpt, strict=False)
-
+    """
     print('Start training')
     trainer = Trainer(model=model, 
                       train_dataset=Train_dataset,
