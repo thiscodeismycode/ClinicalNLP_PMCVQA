@@ -27,9 +27,9 @@ class PMC_QA_Dataset_Title(Dataset):
         self.tokenizer = transformers.LlamaTokenizer.from_pretrained(tokenizer_path)
         self.tokenizer.pad_token_id = 0
         # self.tokenizer.bos_token_id = 0
-        # self.tokenizer.eos_token_id = 1
-        self.tokenizer.bos_token_id = 1
-        self.tokenizer.eos_token_id = 2
+        self.tokenizer.eos_token_id = 1
+        # self.tokenizer.bos_token_id = 1
+        # self.tokenizer.eos_token_id = 2
         self.img_padding = [-100 for i in range(img_tokens)]
         self.attn_padding = [1 for i in range(img_tokens)]
         self.H = 512
@@ -104,27 +104,18 @@ class PMC_QA_Dataset_Title(Dataset):
             if input_length < self.seq_length:
                 input_ids = np.pad(input_ids, (0, self.seq_length - input_length), 'constant', constant_values=0)
             else:
-                # input_ids = np.append(input_ids[:self.seq_length-1], input_ids[-1])
-                input_ids = input_ids[:self.seq_length]
+                input_ids = np.append(input_ids[:self.seq_length-1], input_ids[-1])
+                # input_ids = input_ids[:self.seq_length]
 
             label = copy.deepcopy(input_ids)    # Now label is the tokenized QA
-            # label[label == 0] = -100
+            label[label == 0] = -100
             if pre_text != '':
                 pre_text = self.tokenizer(pre_text)  # Tokenized Q
                 pre_text = pre_text['input_ids']
-                # pre_text.append(self.tokenizer.eos_token_id)
-                # pre_text = np.array(pre_text)
-
                 if len(pre_text) < len(label):
                     label[:len(pre_text)] = -100   # Mask except for the A part
-                """
-                if len(pre_text) < self.seq_length:
-                    pre_text = np.pad(pre_text, (0, self.seq_length - len(pre_text)), 'constant', constant_values=0)
-                else:
-                    pre_text = np.append(pre_text[:self.seq_length - 1], pre_text[-1])
-                """
-            label = label.tolist()
 
+            label = label.tolist()
             if not self.no_image:
                 label = np.array(self.img_padding + label)  # (544,)
 

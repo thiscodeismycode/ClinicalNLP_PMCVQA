@@ -4,13 +4,13 @@ wandb enabled
 wandb login --relogin a1ff7e1a0641445b3ebffc021e1bd9f0c6a43f67
 
 python3 train_downstream2.py \
-    --Train_csv_path '/home/user/KHJ/PMC-VQA/PMC-VQA/train_all.csv' \
+    --Train_csv_path '/home/user/KHJ/PMC-VQA/PMC-VQA/train_multi2.csv' \
     --Eval_csv_path '/home/user/KHJ/PMC-VQA/PMC-VQA/valid.csv' \
     --ckp '/home/user/KHJ/PMC-VQA/src/MedVInT_TD/Results/VQA_lora_PMC_LLaMA_PMCCLIP/blank/checkpoint-1382'\
-    --output_dir ./Results/Train_BioMedGPT \
-    --run_name Train_BioMedGPT \
-    --num_train_epochs 4 \
-    --per_device_train_batch_size 16 \
+    --output_dir ./Results/0327 \
+    --run_name 0327 \
+    --num_train_epochs 10 \
+    --per_device_train_batch_size 32 \
     --per_device_eval_batch_size 4 \
     --gradient_accumulation_steps 1 \
     --evaluation_strategy "epoch" \
@@ -32,8 +32,8 @@ python3 train_downstream2.py \
     --freeze_llama False \
     --seq_length 512 \
     --img_token_num 32 \
-    --model_path 'PharMolix/BioMedGPT-LM-7B' \
-    --tokenizer_path 'PharMolix/BioMedGPT-LM-7B' \
+    # --model_path 'PharMolix/BioMedGPT-LM-7B' \
+    # --tokenizer_path 'PharMolix/BioMedGPT-LM-7B' \
     # --visual_model_path '/home/user/KHJ/PMC-VQA/src/MedVInT_TD/Results/VQA_lora_PMC_LLaMA_PMCCLIP/checkpoint.pt' \
     # --model_path 'GerMedBERT/medalpaca-7b' \
     # --tokenizer_path 'GerMedBERT/medalpaca-7b' \

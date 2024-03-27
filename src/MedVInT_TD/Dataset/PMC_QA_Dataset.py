@@ -23,6 +23,7 @@ class PMC_QA_Dataset(Dataset):
         self.img_root = img_dir
         self.img_root_2 = '/data/clinical-nlp/DermAtlas/'
         self.img_root_3 = '/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_valid/'
+        self.img_root_4 = '/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_test/'
         self.data = pd.read_csv(csv_path, delimiter='@', quoting=csv.QUOTE_NONE).iloc[start:]
         self.tokenizer = transformers.LlamaTokenizer.from_pretrained(tokenizer_path)
         self.tokenizer.pad_token_id = 0
@@ -74,6 +75,8 @@ class PMC_QA_Dataset(Dataset):
         ##### read image pathes #####
             if encounter_id == 0:
                 img_path = self.img_root_3 + sample['Figure_path']
+            elif encounter_id == 'test':
+                img_path = self.img_root_4 + sample['Figure_path']
             elif len(encounter_id) < 8:  # From our new dataset
                 img_path = self.img_root_2 + sample['Figure_path']
             elif len(encounter_id) == 8:

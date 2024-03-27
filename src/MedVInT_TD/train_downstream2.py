@@ -71,10 +71,10 @@ def main():
 
     # Train_dataset = Slake_Dataset(data_args.Train_csv_path, data_args.tokenizer_path, img_dir='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_train/', text_type = 'blank')
     # Eval_dataset = Slake_Dataset(data_args.Eval_csv_path, data_args.tokenizer_path, img_dir='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_valid/', text_type = 'blank')
-    Train_dataset = PMC_QA_Dataset_Title(csv_path=data_args.Train_csv_path, tokenizer_path=data_args.tokenizer_path,
+    Train_dataset = PMC_QA_Dataset(csv_path=data_args.Train_csv_path, tokenizer_path=data_args.tokenizer_path,
                                    img_dir='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_train/', text_type='blank',
                                    clip_only=data_args.clip_only, seq_length=data_args.seq_length)
-    Eval_dataset = PMC_QA_Dataset_Title(csv_path=data_args.Eval_csv_path, tokenizer_path=data_args.tokenizer_path,
+    Eval_dataset = PMC_QA_Dataset(csv_path=data_args.Eval_csv_path, tokenizer_path=data_args.tokenizer_path,
                                   img_dir='/home/user/KHJ/PMC-VQA/PMC-VQA/images/images_valid/', text_type='blank',
                                         seq_length=data_args.seq_length)
 

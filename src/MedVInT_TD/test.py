@@ -101,7 +101,7 @@ def main():
     
     print("Setup Data")
     row_count = 0
-    Test_dataset = PMC_QA_Dataset_Title(data_args.img_dir, data_args.Test_csv_path, data_args.tokenizer_path,
+    Test_dataset = PMC_QA_Dataset(data_args.img_dir, data_args.Test_csv_path, data_args.tokenizer_path,
                                   text_type='blank', mode='Test', start=row_count, clip_only=data_args.clip_only,
                                   no_query=data_args.no_query, seq_length=data_args.seq_length)
     # Test_dataset = Slake_Dataset(img_dir=data_args.img_dir, csv_path=data_args.Test_csv_path,
